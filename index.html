@@ -31,6 +31,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
   :root{
@@ -135,6 +137,54 @@
   #themeToggle{ font-size:.85rem; padding:.2rem .5rem; }
   .egg-btn{ display:flex; align-items:center; color:var(--phosphor-dim); padding:.2rem; transition: color .2s ease, transform .2s ease; }
   .egg-btn:hover, .egg-btn:focus-visible{ color:var(--phosphor); transform: scale(1.15); }
+
+  /* ---------- nav egg: periodic pixel-snake hatch animation ---------- */
+  .egg-stage{ position:relative; width:15px; height:15px; display:block; }
+  .egg-half, .egg-hatch{ position:absolute; top:0; left:0; image-rendering:pixelated; }
+  .egg-bottom{ clip-path: inset(50% 0 0 0); }
+  .egg-top{ clip-path: inset(0 0 50% 0); }
+  .egg-hatch{ opacity:0; }
+  .egg-btn.hatching .egg-top{ animation: eggTopCrack 3200ms steps(1) both; }
+  .egg-btn.hatching .egg-bottom{ animation: eggBottomCrack 3200ms steps(1) both; }
+  .egg-btn.hatching .egg-hatch{ animation: eggSnakeLoop 3200ms steps(1) both; }
+  .egg-btn.hatching .hs{ animation: hsFlicker 320ms steps(1) infinite; }
+  .hs2{ animation-delay:-40ms !important; }
+  .hs3{ animation-delay:-80ms !important; }
+  .hs4{ animation-delay:-120ms !important; }
+  .hs5{ animation-delay:-160ms !important; }
+  .hs6{ animation-delay:-200ms !important; }
+  @keyframes hsFlicker{ 0%,100%{ fill:var(--phosphor); } 50%{ fill:var(--phosphor-dim); } }
+
+  @keyframes eggTopCrack{
+    0%,18%{ transform:translate(0,0) rotate(0deg); opacity:1; }
+    24%{ transform:translate(-3px,-3px) rotate(-16deg); opacity:1; }
+    28%{ opacity:0; }
+    90%{ opacity:0; transform:translate(-3px,-3px) rotate(-16deg); }
+    95%{ opacity:1; transform:translate(-1px,-1px) rotate(-4deg); }
+    100%{ opacity:1; transform:translate(0,0) rotate(0deg); }
+  }
+  @keyframes eggBottomCrack{
+    0%,18%{ transform:translate(0,0) rotate(0deg); opacity:1; }
+    24%{ transform:translate(3px,3px) rotate(16deg); opacity:1; }
+    28%{ opacity:0; }
+    90%{ opacity:0; transform:translate(3px,3px) rotate(16deg); }
+    95%{ opacity:1; transform:translate(1px,1px) rotate(4deg); }
+    100%{ opacity:1; transform:translate(0,0) rotate(0deg); }
+  }
+  @keyframes eggSnakeLoop{
+    0%,26%{ opacity:0; transform:translate(0,0) scale(.4); }
+    32%{ opacity:1; transform:translate(0,0) scale(.85); }
+    38%{ transform:translate(2px,0) scale(.85); }
+    44%{ transform:translate(4px,0) scale(.85); }
+    50%{ transform:translate(4px,-2px) scale(.85); }
+    56%{ transform:translate(4px,-4px) scale(.85); }
+    62%{ transform:translate(2px,-4px) scale(.85); }
+    68%{ transform:translate(0,-4px) scale(.85); }
+    74%{ transform:translate(0,-2px) scale(.85); }
+    80%{ transform:translate(0,0) scale(.85); }
+    86%{ opacity:1; transform:translate(0,0) scale(.5); }
+    93%,100%{ opacity:0; transform:translate(0,0) scale(.3); }
+  }
 
   /* ---------- term-box (signature panel) ---------- */
   .term-box{ position:relative; border:1px solid var(--phosphor-dim); padding:1.75rem; margin: 2rem 0; }
@@ -252,6 +302,37 @@
   .game-footer{ display:flex; justify-content:space-between; margin-top:.6rem; font-size:.95rem; color:var(--phosphor-dim); }
   .game-msg{ text-align:center; margin-top:.75rem; min-height:1.4em; cursor:pointer; }
   .lore-text{ margin-top:1.25rem; font-size:.85rem; line-height:1.6; color:var(--phosphor-dim); text-align:center; }
+
+  /* ---------- quick-reference key for new players ---------- */
+  .game-key{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem 1rem;
+    margin-top:1rem; padding-top:.85rem; border-top:1px dashed var(--phosphor-faint);
+    font-size:.85rem; color:var(--phosphor-dim);
+  }
+  .game-key .key-item{ display:flex; align-items:center; gap:.4rem; white-space:nowrap; }
+  .game-key .key-swatch{ width:.85em; height:.85em; flex:none; display:inline-block; box-shadow:0 0 4px currentColor; }
+  .key-swatch.you{ background:#39FF6A; color:#39FF6A; }
+  .key-swatch.good{ background:#FFB300; color:#FFB300; }
+  .key-swatch.power{ background:#33B5FF; color:#33B5FF; }
+  .key-swatch.bad{ background:#FF3B3B; color:#FF3B3B; }
+  .key-swatch.enemy{ background:#1B5E20; color:#1B5E20; }
+  .key-swatch.wall{ background:#45454A; color:#45454A; }
+
+  /* ---------- leaderboard panel (shown on game over) ---------- */
+  .lb-panel{ margin-top:1rem; border-top:1px dashed var(--phosphor-dim); padding-top:1rem; }
+  .lb-panel[hidden]{ display:none; }
+  .lb-title{ font-size:1.1rem; text-align:center; margin-bottom:.6rem; color:var(--phosphor); animation: titleFlicker 7s linear infinite; }
+  .lb-entry-form{ display:flex; gap:.5rem; justify-content:center; align-items:center; margin-bottom:.9rem; }
+  .lb-entry-form input{
+    background:none; border:none; border-bottom:1px solid var(--phosphor); color:var(--phosphor);
+    font-family:var(--font-term); font-size:1.1rem; outline:none; width:120px; padding:.1rem .25rem; letter-spacing:.1em; text-transform:uppercase;
+  }
+  .lb-entry-form button{ font-size:.95rem; }
+  .lb-list{ list-style:none; font-size:1rem; max-width:280px; margin:0 auto; }
+  .lb-list li{ display:flex; justify-content:space-between; gap:1rem; padding:.15rem 0; }
+  .lb-list li .lb-rank{ color:var(--phosphor-dim); width:1.6em; }
+  .lb-list li .lb-name{ flex:1; }
+  .lb-status{ text-align:center; font-size:.85rem; color:var(--phosphor-dim); min-height:1.2em; margin-top:.4rem; }
   .dpad{
     display:grid; grid-template-columns: 48px 48px 48px; grid-template-rows: 48px 48px;
     grid-template-areas: ". up ." "left down right";
@@ -367,7 +448,18 @@
       <li><a href="#comms">[COMMS]</a></li>
       <li><button id="themeToggle" class="invert-hover">GRN/AMB</button></li>
       <li><button id="eggTrigger" class="egg-btn" aria-label="???" type="button">
-        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 2C8 2 5 8 5 13C5 18.5 8 22 12 22C16 22 19 18.5 19 13C19 8 16 2 12 2Z" fill="currentColor"/></svg>
+        <span class="egg-stage">
+          <svg class="egg-half egg-top" viewBox="0 0 24 24" width="15" height="15"><path d="M12 2C8 2 5 8 5 13C5 18.5 8 22 12 22C16 22 19 18.5 19 13C19 8 16 2 12 2Z" fill="currentColor"/></svg>
+          <svg class="egg-half egg-bottom" viewBox="0 0 24 24" width="15" height="15"><path d="M12 2C8 2 5 8 5 13C5 18.5 8 22 12 22C16 22 19 18.5 19 13C19 8 16 2 12 2Z" fill="currentColor"/></svg>
+          <svg class="egg-hatch" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <rect class="hs hs1" x="2" y="7" width="2" height="2"/>
+            <rect class="hs hs2" x="4" y="7" width="2" height="2"/>
+            <rect class="hs hs3" x="6" y="7" width="2" height="2"/>
+            <rect class="hs hs4" x="6" y="5" width="2" height="2"/>
+            <rect class="hs hs5" x="8" y="5" width="2" height="2"/>
+            <rect class="hs hs6" x="8" y="3" width="2" height="2"/>
+          </svg>
+        </span>
       </button></li>
     </ul>
   </div>
@@ -542,7 +634,25 @@
       <button class="dpad-btn dpad-down" data-dir="down" type="button">▼</button>
       <button class="dpad-btn dpad-right" data-dir="right" type="button">▶</button>
     </div>
+    <div class="game-key">
+      <span class="key-item"><span class="key-swatch good"></span>FOOD (+1)</span>
+      <span class="key-item"><span class="key-swatch power"></span>POWER-UP</span>
+      <span class="key-item"><span class="key-swatch bad"></span>POISON (-1)</span>
+      <span class="key-item"><span class="key-swatch enemy"></span>ENEMY</span>
+    </div>
+
     <p class="lore-text">You are a hungry little 8-bit program, feeding on stray data in the archive.<br>Be aware, you're not the only hungry thing in the files.</p>
+
+    <div class="lb-panel" id="lbPanel" hidden>
+      <div class="lb-title mono-up">Top 5 Operators</div>
+      <form class="lb-entry-form" id="lbForm" hidden>
+        <span class="dim">NAME:</span>
+        <input id="lbNameInput" type="text" maxlength="12" autocomplete="off" spellcheck="false">
+        <button type="submit" class="invert-hover">SUBMIT</button>
+      </form>
+      <ol class="lb-list" id="lbList"></ol>
+      <div class="lb-status" id="lbStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -969,6 +1079,8 @@
     tickCount = 0;
     msgEl.textContent = '';
     scoreLabel.textContent = 'SCORE: 000';
+    scoreSubmittedThisRun = false;
+    if (typeof lbPanel !== 'undefined' && lbPanel) lbPanel.hidden = true;
 
     obstacles = new Set();
     const occupied = new Set(snake.map(s => key(s.x, s.y)));
@@ -1278,7 +1390,76 @@
     running = false;
     clearInterval(loopId);
     msgEl.textContent = message;
+    showLeaderboard(score);
   }
+
+  // ---------- leaderboard (Firebase Firestore) ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDCQa56TzZ5ayBplG8JO2CdqgJnvAziWP0",
+    authDomain: "steven-portfolio-1fbf7.firebaseapp.com",
+    databaseURL: "https://steven-portfolio-1fbf7-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "steven-portfolio-1fbf7",
+    storageBucket: "steven-portfolio-1fbf7.firebasestorage.app",
+    messagingSenderId: "1010377020871",
+    appId: "1:1010377020871:web:02aa0bbb27e249d805b5e2"
+  };
+  let db = null;
+  try {
+    if (window.firebase && firebase.apps && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    if (window.firebase) db = firebase.firestore();
+  } catch (e) { console.warn('Leaderboard unavailable:', e); }
+
+  const lbPanel = document.getElementById('lbPanel');
+  const lbForm = document.getElementById('lbForm');
+  const lbNameInput = document.getElementById('lbNameInput');
+  const lbList = document.getElementById('lbList');
+  const lbStatus = document.getElementById('lbStatus');
+  let scoreSubmittedThisRun = false;
+
+  function renderLeaderboard(docs){
+    lbList.innerHTML = docs.map((d, i) =>
+      `<li><span class="lb-rank">${i+1}.</span><span class="lb-name">${d.name}</span><span class="lb-score">${String(d.score).padStart(3,'0')}</span></li>`
+    ).join('') || '<li class="dim">NO SCORES YET</li>';
+  }
+
+  function fetchTopScores(){
+    if (!db) { lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; return; }
+    db.collection('snakeScores').orderBy('score', 'desc').limit(5).get()
+      .then(snap => {
+        const docs = [];
+        snap.forEach(doc => docs.push(doc.data()));
+        renderLeaderboard(docs);
+      })
+      .catch(err => { console.warn(err); lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; });
+  }
+
+  function showLeaderboard(finalScore){
+    lbPanel.hidden = false;
+    lbStatus.textContent = '';
+    fetchTopScores();
+    if (finalScore > 0 && !scoreSubmittedThisRun){
+      lbForm.hidden = false;
+      setTimeout(() => lbNameInput.focus(), 50);
+    } else {
+      lbForm.hidden = true;
+    }
+  }
+
+  lbForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = lbNameInput.value.trim().toUpperCase().slice(0, 12);
+    if (!name){ lbStatus.textContent = '> ENTER A NAME FIRST'; return; }
+    if (!db){ lbStatus.textContent = '> LEADERBOARD OFFLINE'; return; }
+    lbStatus.textContent = '> SUBMITTING...';
+    db.collection('snakeScores').add({ name, score: Math.round(score), ts: Date.now() })
+      .then(() => {
+        scoreSubmittedThisRun = true;
+        lbForm.hidden = true;
+        lbStatus.textContent = '> SCORE LOGGED';
+        fetchTopScores();
+      })
+      .catch(err => { console.warn(err); lbStatus.textContent = '> SUBMIT FAILED'; });
+  });
 
   function startLoop(){
     clearInterval(loopId);
@@ -1298,6 +1479,19 @@
   }
 
   trigger.addEventListener('click', openGame);
+
+  // ---------- periodic egg-hatch idle animation (every 60s) ----------
+  (function(){
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    function playHatch(){
+      if (!overlay.hidden) return; // don't animate the nav icon while the game itself is open
+      trigger.classList.remove('hatching');
+      void trigger.offsetWidth; // force reflow so the animation can restart
+      trigger.classList.add('hatching');
+      setTimeout(() => trigger.classList.remove('hatching'), 3300);
+    }
+    setInterval(playHatch, 60000);
+  })();
   closeBtn.addEventListener('click', closeGame);
 
   const dirMap = {
