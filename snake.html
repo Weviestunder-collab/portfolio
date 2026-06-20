@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
   :root{
@@ -45,6 +47,36 @@
   .dpad-btn:active{ background:var(--phosphor); color:var(--ink); }
   .dpad-up{ grid-area:up; } .dpad-left{ grid-area:left; }
   .dpad-down{ grid-area:down; } .dpad-right{ grid-area:right; }
+
+  /* ---------- quick-reference key for new players ---------- */
+  .game-key{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem 1rem;
+    margin-top:1rem; padding-top:.85rem; border-top:1px dashed var(--phosphor-faint);
+    font-size:.85rem; color:var(--phosphor-dim);
+  }
+  .game-key .key-item{ display:flex; align-items:center; gap:.4rem; white-space:nowrap; }
+  .game-key .key-swatch{ width:.85em; height:.85em; flex:none; display:inline-block; box-shadow:0 0 4px currentColor; }
+  .key-swatch.good{ background:#FFB300; color:#FFB300; }
+  .key-swatch.power{ background:#33B5FF; color:#33B5FF; }
+  .key-swatch.bad{ background:#FF3B3B; color:#FF3B3B; }
+  .key-swatch.enemy{ background:#1B5E20; color:#1B5E20; }
+
+  /* ---------- leaderboard panel (shown on game over) ---------- */
+  .lb-panel{ margin-top:1rem; border-top:1px dashed var(--phosphor-dim); padding-top:1rem; }
+  .lb-panel[hidden]{ display:none; }
+  .lb-title{ font-size:1.1rem; text-align:center; margin-bottom:.6rem; color:var(--phosphor); }
+  .lb-entry-form{ display:flex; gap:.5rem; justify-content:center; align-items:center; margin-bottom:.9rem; }
+  .lb-entry-form input{
+    background:none; border:none; border-bottom:1px solid var(--phosphor); color:var(--phosphor);
+    font-family:var(--font-term); font-size:1.1rem; outline:none; width:120px; padding:.1rem .25rem; letter-spacing:.1em; text-transform:uppercase;
+  }
+  .lb-entry-form button{ font:inherit; background:none; border:1px solid var(--phosphor); color:inherit; cursor:pointer; padding:.25rem .6rem; transition: background .12s, color .12s; font-size:.95rem; }
+  .lb-entry-form button:hover{ background:var(--phosphor); color:var(--ink); }
+  .lb-list{ list-style:none; font-size:1rem; max-width:280px; margin:0 auto; }
+  .lb-list li{ display:flex; justify-content:space-between; gap:1rem; padding:.15rem 0; }
+  .lb-list li .lb-rank{ color:var(--phosphor-dim); width:1.6em; }
+  .lb-list li .lb-name{ flex:1; }
+  .lb-status{ text-align:center; font-size:.85rem; color:var(--phosphor-dim); min-height:1.2em; margin-top:.4rem; }
 </style>
 </head>
 <body>
@@ -67,6 +99,24 @@
     <button class="dpad-btn dpad-right" data-dir="right" type="button">▶</button>
   </div>
   <p class="lore-text">You are a hungry little 8-bit program, feeding on stray data in the archive.<br>Be aware, you're not the only hungry thing in the files.</p>
+
+  <div class="game-key">
+    <span class="key-item"><span class="key-swatch good"></span>FOOD (+1)</span>
+    <span class="key-item"><span class="key-swatch power"></span>POWER-UP</span>
+    <span class="key-item"><span class="key-swatch bad"></span>POISON (-1)</span>
+    <span class="key-item"><span class="key-swatch enemy"></span>ENEMY</span>
+  </div>
+
+  <div class="lb-panel" id="lbPanel" hidden>
+    <div class="lb-title mono-up">Top 5 Operators</div>
+    <form class="lb-entry-form" id="lbForm" hidden>
+      <span class="dim" style="color:var(--phosphor-dim)">NAME:</span>
+      <input id="lbNameInput" type="text" maxlength="12" autocomplete="off" spellcheck="false">
+      <button type="submit">SUBMIT</button>
+    </form>
+    <ol class="lb-list" id="lbList"></ol>
+    <div class="lb-status" id="lbStatus"></div>
+  </div>
 </div>
 
 <script>
@@ -130,6 +180,8 @@
     tickCount = 0;
     msgEl.textContent = '';
     scoreLabel.textContent = 'SCORE: 000';
+    scoreSubmittedThisRun = false;
+    if (typeof lbPanel !== 'undefined' && lbPanel) lbPanel.hidden = true;
 
     obstacles = new Set();
     const occupied = new Set(snake.map(s => key(s.x, s.y)));
@@ -456,7 +508,85 @@
     running = false;
     clearInterval(loopId);
     msgEl.textContent = message;
+    showLeaderboard(score);
   }
+
+  // ---------- leaderboard (Firebase Firestore) ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDCQa56TzZ5ayBplG8JO2CdqgJnvAziWP0",
+    authDomain: "steven-portfolio-1fbf7.firebaseapp.com",
+    databaseURL: "https://steven-portfolio-1fbf7-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "steven-portfolio-1fbf7",
+    storageBucket: "steven-portfolio-1fbf7.firebasestorage.app",
+    messagingSenderId: "1010377020871",
+    appId: "1:1010377020871:web:02aa0bbb27e249d805b5e2"
+  };
+  let db = null;
+  try {
+    if (window.firebase && firebase.apps && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    if (window.firebase) db = firebase.firestore();
+  } catch (e) { console.warn('Leaderboard unavailable:', e); }
+
+  const lbPanel = document.getElementById('lbPanel');
+  const lbForm = document.getElementById('lbForm');
+  const lbNameInput = document.getElementById('lbNameInput');
+  const lbList = document.getElementById('lbList');
+  const lbStatus = document.getElementById('lbStatus');
+  let scoreSubmittedThisRun = false;
+
+  function renderLeaderboard(docs){
+    lbList.innerHTML = docs.map((d, i) =>
+      `<li><span class="lb-rank">${i+1}.</span><span class="lb-name">${d.name}</span><span class="lb-score">${String(d.score).padStart(3,'0')}</span></li>`
+    ).join('') || '<li class="dim">NO SCORES YET</li>';
+  }
+
+  function fetchTopScores(){
+    if (!db) { lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; return; }
+    // fetch a larger pool, then collapse repeat names down to their single best score
+    // so one person resubmitting the same name can't fill every slot and crowd out others
+    db.collection('snakeScores').orderBy('score', 'desc').limit(50).get()
+      .then(snap => {
+        const seen = new Set();
+        const docs = [];
+        snap.forEach(doc => {
+          const d = doc.data();
+          const key = (d.name || '').trim().toUpperCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          docs.push(d);
+        });
+        renderLeaderboard(docs.slice(0, 5));
+      })
+      .catch(err => { console.warn(err); lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; });
+  }
+
+  function showLeaderboard(finalScore){
+    lbPanel.hidden = false;
+    lbStatus.textContent = '';
+    fetchTopScores();
+    if (finalScore > 0 && !scoreSubmittedThisRun){
+      lbForm.hidden = false;
+      setTimeout(() => lbNameInput.focus(), 50);
+    } else {
+      lbForm.hidden = true;
+    }
+  }
+
+  lbForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = lbNameInput.value.trim().toUpperCase().slice(0, 12);
+    if (!name){ lbStatus.textContent = '> ENTER A NAME FIRST'; return; }
+    if (!db){ lbStatus.textContent = '> LEADERBOARD OFFLINE'; return; }
+    lbStatus.textContent = '> SUBMITTING...';
+    db.collection('snakeScores').add({ name, score: Math.round(score), ts: Date.now() })
+      .then(() => {
+        scoreSubmittedThisRun = true;
+        lbForm.hidden = true;
+        lbStatus.textContent = '> SCORE LOGGED';
+        fetchTopScores();
+      })
+      .catch(err => { console.warn(err); lbStatus.textContent = '> SUBMIT FAILED'; });
+  });
 
   function startLoop(){
     clearInterval(loopId);
