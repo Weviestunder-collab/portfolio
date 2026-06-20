@@ -175,7 +175,7 @@
   .file-entry-head .arrow{ color:var(--olive); font-weight:900; transition: transform .15s ease; }
   .file-entry:hover .file-entry-head .arrow, .file-entry:focus-visible .file-entry-head .arrow{ transform: translateX(6px); }
   .file-pano{ position:relative; width:100%; aspect-ratio:21/9; overflow:hidden; }
-  .file-pano img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(1) contrast(1.08) brightness(.97); transition: transform .4s ease; }
+  .file-pano img{ width:100%; height:100%; object-fit:cover; display:block; transition: transform .4s ease; }
   .file-entry:hover .file-pano img{ transform: scale(1.02); }
   .file-entry.is-active{ background: rgba(86,90,54,.08); }
 
@@ -198,7 +198,7 @@
   .modal-backdrop.is-open{ display:block; }
   .modal-wrap{ max-width:1400px; margin:4vh auto 8vh; padding:0 6vw; }
   .modal-hero{ position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; margin-bottom:2rem; cursor:pointer; }
-  .modal-hero img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(1) contrast(1.08) brightness(.97); }
+  .modal-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
   .modal-hero .play-btn{
     position:absolute; bottom:1.5rem; left:1.5rem; transform:none;
     width:60px; height:60px; border-radius:50%; background:var(--olive); border:none;
@@ -209,7 +209,7 @@
 
   .video-row{ display:flex; flex-direction:column; margin-bottom:2rem; }
   .video-tile{ position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; cursor:pointer; margin-bottom:3rem; }
-  .video-tile img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(1) contrast(1.08) brightness(.97); }
+  .video-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
   .video-tile .vt-pending-tag{ position:absolute; top:.6rem; left:.6rem; background:var(--bg); border:1px solid var(--line); padding:.2rem .6rem; font-size:.68rem; letter-spacing:.06em; color:var(--text-dim); text-transform:uppercase; }
   .video-tile .play-btn{
     position:absolute; bottom:1.25rem; left:1.25rem; transform:none;
@@ -248,13 +248,13 @@
   .km-row--small{ flex:1; }
   .km-col{ flex:1; display:flex; flex-direction:column; gap:.85rem; }
   .km-tile{ position:relative; flex:1; overflow:hidden; }
-  .km-tile img{ width:100%; height:100%; object-fit:cover; display:block; filter:grayscale(1) contrast(1.08) brightness(.97); }
+  .km-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
   .km-tile .gidx{ position:absolute; top:6px; left:6px; background:var(--bg); padding:0 5px; font-size:.68rem; color:var(--text-dim); }
   .km-square{ flex:0 0 50%; aspect-ratio:1/1; }
   .km-banner{ aspect-ratio:3/1; }
 
   .landscape-stack{ display:flex; flex-direction:column; gap:.85rem; margin-bottom:3rem; }
-  .landscape-stack img{ width:100%; height:auto; display:block; filter:grayscale(1) contrast(1.08) brightness(.97); }
+  .landscape-stack img{ width:100%; height:auto; display:block; }
   .km-chunk--flip > .km-row{ flex-direction:row-reverse; }
   .km-chunk--flip .km-row--small{ flex-direction:row-reverse; }
   @media (max-width:760px){
