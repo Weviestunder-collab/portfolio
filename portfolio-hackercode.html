@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>operator.py</title>
+<meta name="description" content="Portfolio of Steven Azancot, director of TV commercials with VFX integration and motion graphics. Retro terminal UI.">
+
+<!--
+  HOW TO CUSTOMIZE THIS FILE
+  ---------------------------
+  1. Find & replace "STEVEN AZANCOT" / "Steven Azancot" with your name.
+  2. Find & replace "hello@stevenazancot.com" with your email.
+  3. Edit the `projects` array inside <script> at the bottom — each object is one
+     film: filename, client, category, year, synopsis, and crew credits.
+  3a. Every project also has a `gallery:[]` ("Key Moments", 4 images max, fixed
+      mosaic layout) and a `stills:[]` ("RND", any number of images,
+      simple grid) field. Both are empty by default — add image data URIs to either
+      array and that section appears automatically on that project's page; leave
+      an array empty and the section just stays hidden.
+  3b. Each project's detail page plays a video. Add a `video:'YOUTUBE_ID'` field
+      to a project object to set its own video — grab the ID from the YouTube URL
+      (the part after "v="). Projects without one fall back to the shared
+      DEFAULT_VIDEO_URL placeholder set near the top of the <script>'s modal logic.
+  4. The green/amber toggle in the nav swaps a single CSS variable (--phosphor) —
+     edit it directly in :root if you want a different phosphor color entirely.
+  5. The boot sequence on load is purely decorative and skips automatically for
+     users with reduced-motion settings enabled.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+<style>
+  /* ===================================================================
+     CODE SKIN — monochrome editor aesthetic, content read as real Python
+     Black & white only. No glow, no neon, no glitch — just a clean editor.
+     =================================================================== */
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+  :root{
+    --phosphor: #E8E8E8;
+    --phosphor-dim: #6e6e6e;
+    --phosphor-faint: rgba(255,255,255,.1);
+    --bg: #0a0a0a;
+    --ink: #0a0a0a;
+    --gray-1: #cfcfcf;
+    --gray-2: #8a8a8a;
+    --gray-3: #555555;
+    --line: #232323;
+    --font-term: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+    --font-display: 'JetBrains Mono', Consolas, monospace;
+  }
+  html.amber-mode{ --phosphor:#E8E8E8; --phosphor-dim:#6e6e6e; --phosphor-faint:rgba(255,255,255,.1); }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  }
+
+  body{
+    background: var(--bg);
+    color: var(--gray-1);
+    font-family: var(--font-term);
+    font-size: .98rem;
+    line-height: 1.7;
+    letter-spacing: 0;
+  }
+  body.modal-open, body.boot-active{ overflow:hidden; }
+
+  a{ color:inherit; text-decoration:none; }
+  button{ font:inherit; background:none; border:none; color:inherit; cursor:pointer; }
+  ::selection{ background: #fff; color:#000; }
+
+  .mono-up{ text-transform:none; }
+  .wrap{ max-width:880px; margin:0 auto; padding:0 5vw; }
+  @media (min-width:600px){ .wrap{ padding:0 2rem; } }
+  .dim{ color: var(--gray-3); }
+
+  .skip-link{ position:absolute; left:-9999px; top:0; background:#fff; color:#000; padding:.5rem 1rem; z-index:600; }
+  .skip-link:focus{ left:1rem; top:1rem; }
+  :focus-visible{ outline:1px solid #fff; outline-offset:2px; }
+
+  .glow{ text-shadow:none; }
+  .flicker-text{ animation:none; }
+  .crt-overlay{ display:none; }
+
+  .invert-hover{ display:inline-block; padding:.2rem .55rem; border:1px solid var(--gray-3); color:var(--gray-1); transition: background .1s, color .1s, border-color .1s; }
+  .invert-hover:hover, .invert-hover:focus-visible{ background:#fff; color:#000; border-color:#fff; }
+
+  .cursor::after{ content:'▏'; animation: blink 1.1s steps(1) infinite; color:#fff; }
+  @keyframes blink{ 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+
+  /* ---------- syntax helpers, reused everywhere ---------- */
+  .kw{ color:#fff; font-weight:700; }              /* keywords: def, class, import, return */
+  .str{ color: var(--gray-1); }                     /* string literal text */
+  .cmt{ color: var(--gray-3); font-style:italic; }  /* # comments */
+  .punc{ color: var(--gray-3); }                    /* punctuation: () [] {} : , */
+
+  /* ---------- nav: looks like a file's import header ---------- */
+  header.nav{ position:sticky; top:0; z-index:100; background:rgba(10,10,10,.94); border-bottom:1px solid var(--line); }
+  header.nav .wrap{ display:flex; align-items:center; justify-content:space-between; height:54px; flex-wrap:wrap; gap:.5rem; max-width:880px; padding:0 5vw; }
+  @media (min-width:600px){ header.nav .wrap{ padding:0 2rem; } }
+  .nav-logo{ font-size:.92rem; color:#fff; }
+  .nav-logo::before{ content:'# '; color:var(--gray-3); }
+  .nav-links{ display:flex; gap:1rem; list-style:none; align-items:center; flex-wrap:wrap; }
+  .nav-links a{ font-size:.82rem; color:var(--gray-2); }
+  .nav-links a::before{ content:'from .'; color:var(--gray-3); }
+  .nav-links a::after{ content:' import *'; color:var(--gray-3); display:none; }
+  .nav-links a:hover, .nav-links a:focus-visible{ color:#fff; }
+  #themeToggle{ font-size:.72rem; padding:.15rem .45rem; }
+  .egg-btn{ display:flex; align-items:center; color:var(--gray-3); padding:.2rem; }
+  .egg-btn:hover, .egg-btn:focus-visible{ color:#fff; }
+
+  /* ---------- term-box: a code block / editor pane ---------- */
+  .term-box{ position:relative; border:1px solid var(--line); padding:1.5rem 1.5rem 1.25rem; margin:2rem 0; background:#0d0d0d; }
+  .term-box::before{
+    content:'operator.py'; display:block; margin:-1.5rem -1.5rem 1.25rem; padding:.5rem 1rem;
+    border-bottom:1px solid var(--line); color:var(--gray-3); font-size:.78rem; background:#111;
+  }
+  .corner-glyph{ display:none; }
+
+  .term-divider{ display:flex; align-items:center; gap:.6rem; margin:3.25rem 0 1.25rem; color:var(--gray-3); }
+  .term-divider .label{ color:var(--gray-2); white-space:nowrap; font-size:.85rem; }
+  .term-divider .label::before{ content:'# '; color: var(--gray-3); }
+  .term-divider::after{ content:''; flex:1; border-top:1px solid var(--line); }
+
+  .leader-row{ display:flex; align-items:baseline; gap:.3rem; padding:.18rem 0; font-size:.92rem; }
+  .leader-row .label{ white-space:nowrap; color:#7aa2c4; } /* the only non-gray accent: a muted "string key" blue, reads as syntax not decoration */
+  .leader-row .label::before{ content:'"'; color:var(--gray-3); }
+  .leader-row .label::after{ content:'":'; color:var(--gray-3); }
+  .leader-row .fill{ display:none; }
+  .leader-row .value{ white-space:normal; color:var(--gray-1); }
+  .leader-row .value::before{ content:'"'; color:var(--gray-3); }
+  .leader-row .value::after{ content:'",'; color:var(--gray-3); }
+
+  .hero{ padding:2.75rem 0 1.5rem; }
+  .ascii-bar{ font-size:.82rem; color:var(--gray-3); }
+  .hero h1{ font-family:var(--font-display); font-weight:700; font-size:clamp(1.4rem, 3.6vw, 2rem); margin-top:.6rem; color:#fff; }
+  .hero h1::before{ content:'class '; color:var(--gray-1); font-weight:400; }
+  .hero h1::after{ content:'():'; color:var(--gray-3); font-weight:400; }
+  .progress-line{ margin-top:.6rem; font-size:.85rem; color:var(--gray-3); }
+  .access-link{ margin-top:1.5rem; font-size:.9rem; display:inline-block; }
+  .access-link::before{ content:'>>> '; color:var(--gray-3); }
+
+  .filter-bar{ display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .filter-btn{ font-size:.78rem; border:1px solid var(--gray-3); padding:.18rem .5rem; }
+  .filter-btn.is-active{ background:#fff; color:#000; border-color:#fff; }
+  .file-entry{ padding:1.6rem 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .file-entry-head{ display:flex; flex-direction:column; gap:.2rem; margin-bottom:.9rem; }
+  .file-entry-head .idx{ color:var(--gray-3); font-size:.82rem; order:1; }
+  .file-entry-head .idx::before{ content:'def project_'; }
+  .file-entry-head .idx::after{ content:'():'; }
+  .file-entry-title{ order:2; font-size:1rem; color:#fff; }
+  .file-entry-title::before{ content:'    return '; color:var(--gray-3); font-weight:400; }
+  .file-entry-title::after{ content:''; }
+  .file-entry-head .cat, .file-entry-head .yr{ order:3; color:var(--gray-3); font-size:.78rem; }
+  .file-entry-head .arrow{ display:none; }
+  .file-pano{ position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; border:1px solid var(--line); filter:grayscale(1) contrast(1.05); }
+  .file-entry:hover .file-pano, .file-entry:focus-visible .file-pano{ border-color:#fff; }
+  .file-pano img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .file-entry.is-active{ background: var(--phosphor-faint); }
+
+  [data-reveal]{ opacity:0; transform:translateY(8px); transition: opacity .35s ease, transform .35s ease; }
+  [data-reveal].in{ opacity:1; transform:translateY(0); }
+
+  .about-grid{ display:block; }
+  .about-grid p{ color:var(--gray-1); max-width:64ch; margin-top:.5rem; font-size:.92rem; }
+  .about-grid p::before{ content:'"""\A'; white-space:pre; color:var(--gray-3); }
+  .about-grid p::after{ content:'\A"""'; white-space:pre; color:var(--gray-3); }
+  .about-grid .term-box{ margin-top:1.5rem; }
+
+  .contact{ padding:1rem 0 4rem; }
+  .contact-links{ display:flex; flex-direction:column; gap:.5rem; margin-top:1rem; }
+  .contact-links a::before{ content:'>>> open('; color:var(--gray-3); }
+  .contact-links a::after{ content:')'; color:var(--gray-3); }
+
+  footer{ border-top:1px solid var(--line); padding:.9rem 0; font-size:.78rem; color:var(--gray-3); }
+  footer .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:.4rem; max-width:880px; padding:0 5vw; }
+  @media (min-width:600px){ footer .wrap{ padding:0 2rem; } }
+
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:300; display:none; overflow-y:auto; }
+  .modal-backdrop.is-open{ display:block; }
+  .modal-wrap{ max-width:880px; margin:5vh auto 8vh; padding:0 5vw; }
+  @media (min-width:600px){ .modal-wrap{ padding:0 2rem; } }
+  .modal-hero{ position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; border:1px solid var(--line); margin-bottom:1.5rem; cursor:pointer; filter:grayscale(1) contrast(1.05); }
+  .modal-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .modal-hero .play-btn{
+    position:absolute; bottom:1.1rem; left:50%; transform:translateX(-50%);
+    width:50px; height:50px; border-radius:50%; background:#fff; border:none;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; transition: transform .12s ease;
+  }
+  .modal-hero:hover .play-btn{ transform:translateX(-50%) scale(1.06); }
+  .modal-hero .play-btn svg{ width:16px; height:16px; fill:#000; margin-left:2px; }
+
+  .video-row{ display:flex; flex-direction:column; margin-bottom:1.5rem; }
+  .video-tile{ position:relative; width:100%; aspect-ratio:16/9; overflow:hidden; border:1px solid var(--line); cursor:pointer; margin-bottom:2rem; filter:grayscale(1) contrast(1.05); }
+  .video-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .video-tile .vt-pending-tag{ position:absolute; top:.5rem; left:.5rem; background:#000; border:1px solid var(--gray-3); padding:.15rem .5rem; font-size:.68rem; color:var(--gray-3); }
+  .video-tile .play-btn{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:46px; height:46px; border-radius:50%; background:#fff; border:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .video-tile:hover .play-btn{ transform:translate(-50%,-50%) scale(1.06); }
+  .video-tile .play-btn svg{ width:15px; height:15px; fill:#000; margin-left:2px; }
+  .video-tile.is-pending{ cursor:default; }
+  .video-tile.is-pending .play-btn{ opacity:.3; }
+
+  .video-overlay{ position:fixed; inset:0; background:#000; z-index:600; display:flex; align-items:center; justify-content:center; }
+  .video-overlay[hidden]{ display:none; }
+  .video-overlay-inner{ width:100%; max-width:1800px; aspect-ratio:16/9; padding:0 2vw; }
+  .video-overlay-inner iframe{ width:100%; height:100%; border:0; display:block; }
+  .video-overlay-close{ position:fixed; top:1.25rem; right:1.25rem; z-index:610; background:#fff; color:#000; }
+
+  .snake-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:700; display:flex; align-items:center; justify-content:center; }
+  .snake-overlay[hidden]{ display:none; }
+  .game-box{ position:relative; background:#0d0d0d; padding:1.5rem; border:1px solid var(--line); }
+  .game-box.powered{ border-color:#fff; }
+  .game-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.75rem; gap:1rem; }
+  .game-top .title{ font-size:.95rem; color:#fff; }
+  #gameCanvas{ display:block; background:#000; border:1px solid var(--line); }
+  .game-footer{ display:flex; justify-content:space-between; margin-top:.6rem; font-size:.8rem; color:var(--gray-3); }
+  .game-msg{ text-align:center; margin-top:.75rem; min-height:1.4em; cursor:pointer; }
+  .lore-text{ margin-top:1.25rem; font-size:.74rem; line-height:1.5; color:var(--gray-3); text-align:center; }
+  .dpad{ display:grid; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px; grid-template-areas:". up ." "left down right"; gap:.4rem; justify-content:center; margin-top:1rem; }
+  .dpad-btn{ background:none; border:1px solid var(--gray-3); color:#fff; font-size:1.1rem; cursor:pointer; touch-action:manipulation; user-select:none; }
+  .dpad-btn:active{ background:#fff; color:#000; }
+  .dpad-up{ grid-area:up; } .dpad-left{ grid-area:left; } .dpad-down{ grid-area:down; } .dpad-right{ grid-area:right; }
+
+  .km-grid{ margin-bottom:2rem; display:flex; flex-direction:column; gap:.6rem; }
+  .km-chunk{ display:flex; flex-direction:column; gap:.6rem; }
+  .km-row{ display:flex; gap:.6rem; }
+  .km-row--small{ flex:1; }
+  .km-col{ flex:1; display:flex; flex-direction:column; gap:.6rem; }
+  .km-tile{ position:relative; flex:1; overflow:hidden; border:1px solid var(--line); filter:grayscale(1) contrast(1.05); }
+  .km-tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .km-tile .gidx{ position:absolute; top:4px; left:4px; background:#000; border:1px solid var(--gray-3); padding:0 4px; font-size:.68rem; color:var(--gray-2); }
+  .km-square{ flex:0 0 50%; aspect-ratio:1/1; }
+  .km-banner{ aspect-ratio:3/1; }
+
+  .landscape-stack{ display:flex; flex-direction:column; gap:.6rem; margin-bottom:2rem; }
+  .landscape-stack img{ width:100%; height:auto; display:block; border:1px solid var(--line); filter:grayscale(1) contrast(1.05); }
+  .km-chunk--flip > .km-row{ flex-direction:row-reverse; }
+  .km-chunk--flip .km-row--small{ flex-direction:row-reverse; }
+  @media (max-width:760px){
+    .km-row{ flex-direction:column; }
+    .km-chunk--flip > .km-row{ flex-direction:column; }
+    .km-chunk--flip .km-row--small{ flex-direction:row-reverse; }
+    .km-square{ flex:0 0 auto; }
+    .km-banner{ aspect-ratio:16/9; }
+  }
+
+  .modal-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
+  .modal-top-back{ margin-bottom:1.1rem; }
+  .modal-back-top, .modal-back-bottom{ font-size:.82rem; }
+  .modal-back-top::before, .modal-back-bottom::before{ content:'# '; color:var(--gray-3); }
+  .modal-tags{ display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1rem; }
+  .modal-tags span{ font-size:.72rem; color:var(--gray-2); border:1px solid var(--line); padding:.12rem .45rem; }
+  .modal-title{ font-size:1.25rem; color:#fff; }
+  .modal-title::before{ content:'def '; color:var(--gray-1); font-weight:400; }
+  .modal-title::after{ content:'():'; color:var(--gray-3); font-weight:400; }
+  #modalCredits .leader-row{ font-size:.9rem; }
+  .modal-meta-grid{ display:grid; grid-template-columns:1fr; gap:0; }
+  #modalCredits{ display:grid; grid-template-columns:1fr; gap:0; }
+
+  #bootScreen{
+    position:fixed; inset:0; background:#000; color:var(--gray-1); z-index:1000;
+    display:flex; align-items:center; justify-content:center; padding:6vw;
+  }
+  #bootScreen.hidden{ display:none; }
+  #bootLines{ width:100%; max-width:560px; font-size:.95rem; }
+  #bootLines div{ margin-bottom:.4rem; min-height:1.4em; }
+  #bootLines div::before{ content:'>>> '; color:var(--gray-3); }
+  .typing::after{ content:'▏'; margin-left:2px; animation: blink 1s steps(1) infinite; color:#fff; }
+  #bootSkip{ margin-top:2rem; font-size:.85rem; }
+
+  @media (max-width:760px){
+    .file-pano{ aspect-ratio:16/9; }
+    .file-entry-head .cat{ display:none; }
+  }
+
+  /* ===================================================================
+     CODE LEAKS — fragments of "backend" sitting between sections/projects
+     Decorative, non-interactive, low-contrast so it reads as background
+     noise rather than competing with real content.
+     =================================================================== */
+  .code-leak{
+    margin: 2.5rem 0; padding: .9rem 1.1rem; border-left:2px solid var(--line);
+    font-size:.78rem; line-height:1.65; color:var(--gray-3); overflow-x:auto;
+    white-space:pre; user-select:none;
+  }
+  .code-leak .kw{ color:#9a9a9a; font-weight:700; }
+  .code-leak .str{ color:#6e6e6e; }
+  .code-leak .cmt{ color:#454545; font-style:italic; }
+  .code-leak .fn{ color:#bdbdbd; }
+
+  .leak-inline{
+    margin:.5rem 0 1.75rem; padding:.6rem .9rem; border-left:2px solid var(--line);
+    font-size:.72rem; line-height:1.55; color:#454545; overflow-x:auto; white-space:pre;
+    user-select:none; opacity:.85;
+  }
+  .leak-inline .kw{ color:#888; font-weight:700; }
+  .leak-inline .str{ color:#5e5e5e; }
+  .leak-inline .fn{ color:#aaa; }
+
+
+  /* ===================================================================
+     PUNCH-UP PASS — removed background animation per feedback; keeping
+     this section as a marker that the leak snippets below are the punch.
+     =================================================================== */
+
+</style>
+
+</head>
+<body class="boot-active">
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="crt-overlay" aria-hidden="true">
+  <div class="vignette"></div>
+  <div class="scan"></div>
+  <div class="wash"></div>
+</div>
+
+<!-- ---------- boot sequence (decorative, auto-skips w/ reduced motion) ---------- -->
+<div id="bootScreen">
+  <div>
+    <div id="bootLines">
+      <div>import archive</div>
+      <div>archive.load()  # OK</div>
+      <div>archive.connect()  # OK</div>
+      <div>print("ready.")</div>
+    </div>
+    <div id="bootPasswordSection" style="display:none; margin-top:1.5rem;">
+      <div id="bootPasswordPrompt" style="margin-bottom:.75rem;">raise AuthRequired</div>
+      <div style="display:flex; align-items:center; gap:.5rem;">
+        <span>input("password: ")</span>
+        <input id="bootPasswordInput" type="password" autocomplete="off" spellcheck="false"
+          style="background:none; border:none; border-bottom:1px solid var(--phosphor); color:var(--phosphor);
+                 font-family:var(--font-term); font-size:1.18rem; outline:none; width:160px; padding:.1rem .25rem; letter-spacing:.15em;">
+      </div>
+      <div id="bootPasswordError" style="margin-top:.6rem; color:#FF3B3B; min-height:1.2em;"></div>
+    </div>
+    <button id="bootSkip" class="invert-hover" style="margin-top:1.5rem;">continue()</button>
+  </div>
+</div>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="nav-logo cursor" href="#top">STEVEN_AZANCOT.SYS</a>
+    <ul class="nav-links">
+      <li><a href="#archive">[ARCHIVE]</a></li>
+      <li><a href="#profile">[PROFILE]</a></li>
+      <li><a href="#comms">[COMMS]</a></li>
+      <li><button id="themeToggle" class="invert-hover">--mono</button></li>
+      <li><button id="eggTrigger" class="egg-btn" aria-label="???" type="button">
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 2C8 2 5 8 5 13C5 18.5 8 22 12 22C16 22 19 18.5 19 13C19 8 16 2 12 2Z" fill="currentColor"/></svg>
+      </button></li>
+    </ul>
+  </div>
+</header>
+
+<div class="wrap" aria-hidden="true">
+  <pre class="code-leak"><span class="cmt"># server.py — 起動中</span>
+app = Flask(__name__)
+<span class="kw">@app</span>.route(<span class="str">"/"</span>)
+<span class="kw">def</span> <span class="fn">index</span>():
+    <span class="kw">return</span> render(<span class="str">"operator.py"</span>, archive=load_projects())</pre>
+</div>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="term-box">
+        <span class="corner-glyph tl">┌</span><span class="corner-glyph tr">┐</span>
+        <span class="corner-glyph bl">└</span><span class="corner-glyph br">┘</span>
+        <div class="ascii-bar dim"># operator_file.py</div>
+        <h1 class="glow flicker-text">STEVEN AZANCOT</h1>
+        <div class="leader-row"><span class="label mono-up">Role</span><span class="fill"></span><span class="value">DIRECTOR</span></div>
+        <div class="leader-row"><span class="label mono-up">Specialty</span><span class="fill"></span><span class="value">TV / VFX / MOTION GFX</span></div>
+        <div class="leader-row"><span class="label mono-up">Status</span><span class="fill"></span><span class="value">ONLINE ●</span></div>
+        <div class="progress-line dim">ARCHIVE INTEGRITY [██████████] 100%</div>
+        <a href="#archive" class="access-link invert-hover cursor">ACCESS ARCHIVE</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap" aria-hidden="true">
+    <pre class="code-leak"><span class="cmt"># archive/loader.py — 読み込み中</span>
+<span class="kw">def</span> <span class="fn">resolve_assets</span>(project):
+    <span class="kw">if</span> project.gallery:
+        <span class="kw">return</span> [Image(p) <span class="kw">for</span> p <span class="kw">in</span> project.gallery]
+    <span class="kw">return</span> []  <span class="cmt"># 該当なし — no key moments on file</span></pre>
+  </div>
+
+  <section id="archive">
+    <div class="wrap">
+      <div class="term-divider" data-reveal><span class="label mono-up">Archive — <span id="archiveCount">06</span> Files</span></div>
+      <div class="filter-bar" data-reveal>
+        <button class="filter-btn invert-hover is-active" data-filter="ALL">[ALL]</button>
+        <button class="filter-btn invert-hover" data-filter="ADDS">[ADDS]</button>
+        <button class="filter-btn invert-hover" data-filter="VP">[VP]</button>
+        <button class="filter-btn invert-hover" data-filter="MOTION GRAPHICS">[MOTION GRAPHICS]</button>
+        <button class="filter-btn invert-hover" data-filter="ANIMATION">[ANIMATION]</button>
+        <button class="filter-btn invert-hover" data-filter="STOP FRAME">[STOP FRAME]</button>
+        <button class="filter-btn invert-hover" data-filter="DEMO">[DEMO]</button>
+        <button class="filter-btn invert-hover" data-filter="PRODUCTS">[PRODUCTS]</button>
+        <button class="filter-btn invert-hover" data-filter="AI">[AI]</button>
+        <button class="filter-btn invert-hover" data-filter="INTEGRATION">[INTEGRATION]</button>
+        <button class="filter-btn invert-hover" data-filter="CHARACTER">[CHARACTER]</button>
+        <button class="filter-btn invert-hover" data-filter="DIRECTOR">[DIRECTOR]</button>
+        <button class="filter-btn invert-hover" data-filter="ART DIRECTOR">[ART DIRECTOR]</button>
+        <button class="filter-btn invert-hover" data-filter="VFX SUPERVISOR">[VFX SUPERVISOR]</button>
+      </div>
+      <div id="fileList"></div>
+    </div>
+  </section>
+
+  <div class="wrap" aria-hidden="true">
+    <pre class="code-leak"><span class="cmt"># filters.py — タグ照合</span>
+TAGS = sorted(<span class="kw">set</span>(t <span class="kw">for</span> p <span class="kw">in</span> archive <span class="kw">for</span> t <span class="kw">in</span> p.tags))
+<span class="kw">assert</span> <span class="str">'AI'</span> <span class="kw">in</span> TAGS, <span class="str">"missing category"</span>
+log.debug(f<span class="str">"{len(TAGS)} active filters — 一致"</span>)</pre>
+  </div>
+
+  <section id="profile">
+    <div class="wrap">
+      <div class="term-divider" data-reveal><span class="label mono-up">Operator Profile</span></div>
+      <div class="about-grid">
+        <div data-reveal>
+          <p>I direct TV commercials and brand films where live action, VFX, and motion graphics share the frame equally — not VFX bolted on after the shoot, but built into the concept from the first treatment. Based between Lisbon and London, working with production companies and agencies on spots from 15 seconds to broadcast hero films.</p>
+        </div>
+        <div class="term-box" style="margin-top:0;" data-reveal>
+          <span class="corner-glyph tl">┌</span><span class="corner-glyph tr">┐</span>
+          <span class="corner-glyph bl">└</span><span class="corner-glyph br">┘</span>
+          <div class="leader-row"><span class="label mono-up">Name</span><span class="fill"></span><span class="value">STEVEN AZANCOT</span></div>
+          <div class="leader-row"><span class="label mono-up">Based</span><span class="fill"></span><span class="value">LISBON / LONDON</span></div>
+          <div class="leader-row"><span class="label mono-up">Repped by</span><span class="fill"></span><span class="value">NORTHBOUND FILMS</span></div>
+          <div class="leader-row"><span class="label mono-up">Status</span><span class="fill"></span><span class="value">BOOKING 2026</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap" aria-hidden="true">
+    <pre class="code-leak"><span class="cmt"># contact.py — 接続待機</span>
+<span class="kw">class</span> <span class="fn">Operator</span>:
+    booking_status = <span class="str">"2026"</span>
+    repped_by = <span class="str">"NORTHBOUND_FILMS"</span>
+    <span class="kw">def</span> <span class="fn">reach</span>(self):
+        <span class="kw">return</span> mailto(self.email)  <span class="cmt"># 応答速度 &lt;100ms</span></pre>
+  </div>
+
+  <section class="contact" id="comms">
+    <div class="wrap">
+      <div class="term-divider" data-reveal><span class="label mono-up">Comms</span></div>
+      <p class="cursor" data-reveal>&gt; OPEN CHANNEL</p>
+      <div class="contact-links" data-reveal>
+        <a href="mailto:hello@stevenazancot.com" class="invert-hover">EMAIL: hello@stevenazancot.com</a>
+      </div>
+      <div class="contact-links" data-reveal>
+        <a href="#" class="invert-hover">[VIMEO]</a>
+        <a href="#" class="invert-hover">[INSTAGRAM]</a>
+        <a href="#" class="invert-hover">[LINKEDIN]</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span># status: ready</span>
+    <span>© 2026 STEVEN AZANCOT</span>
+    <span># build: stable</span>
+  </div>
+</footer>
+
+<!-- ---------- file detail modal ---------- -->
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-wrap">
+    <div class="term-box">
+      <span class="corner-glyph tl">┌</span><span class="corner-glyph tr">┐</span>
+      <span class="corner-glyph bl">└</span><span class="corner-glyph br">┘</span>
+
+      <div class="modal-hero" id="modalHero">
+        <img id="modalImg" src="" alt="">
+        <button class="play-btn" id="modalPlayBtn" aria-label="Play video" type="button">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+        </button>
+      </div>
+
+      <div class="video-row" id="modalVideoRow" hidden></div>
+
+      <div class="modal-top-back">
+        <a href="#archive" class="invert-hover modal-back-top">[&lt;] BACK TO ARCHIVE</a>
+      </div>
+
+      <div class="modal-top">
+        <span class="dim" id="modalFileLabel">FILE 01</span>
+        <button id="modalCloseBtn" class="invert-hover">[ESC] CLOSE</button>
+      </div>
+
+      <h2 class="modal-title glow flicker-text" id="modalTitle"></h2>
+
+      <div class="modal-meta-grid">
+        <div class="leader-row"><span class="label mono-up">Client</span><span class="fill"></span><span class="value" id="modalClient"></span></div>
+        <div class="leader-row"><span class="label mono-up">Agency</span><span class="fill"></span><span class="value" id="modalAgency"></span></div>
+        <div class="leader-row"><span class="label mono-up">Post</span><span class="fill"></span><span class="value" id="modalPost"></span></div>
+        <div class="leader-row"><span class="label mono-up">Role</span><span class="fill"></span><span class="value" id="modalType"></span></div>
+      </div>
+
+      <div class="term-divider"><span class="label mono-up">Synopsis</span></div>
+      <p id="modalSynopsis"></p>
+
+      <div id="modalGallerySection"></div>
+
+      <div id="modalStillsSection"></div>
+
+      <div id="modalLandscapeSection"></div>
+
+      <div class="term-divider"><span class="label mono-up">Crew</span></div>
+      <div id="modalCredits"></div>
+
+      <div class="term-divider"><span class="label mono-up">Filters</span></div>
+      <div class="modal-tags" id="modalTags"></div>
+
+      <div style="margin-top:2rem;">
+        <a href="#archive" id="modalBack" class="invert-hover modal-back-bottom">[&lt;] BACK TO ARCHIVE</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- full-screen video overlay ---------- -->
+<div class="video-overlay" id="videoOverlay" hidden role="dialog" aria-modal="true" aria-label="Video player">
+  <button class="invert-hover video-overlay-close" id="videoOverlayClose" type="button">[ESC] CLOSE</button>
+  <div class="video-overlay-inner">
+    <iframe id="overlayVideoFrame" src="" title="" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+</div>
+
+<!-- ---------- hidden easter egg: snake ---------- -->
+<div class="snake-overlay" id="snakeOverlay" hidden role="dialog" aria-modal="true" aria-label="Snake game">
+  <div class="game-box" id="gameBox">
+    <div class="game-top">
+      <span class="title mono-up">snake.exe</span>
+      <button id="snakeCloseBtn" class="invert-hover">[ESC] CLOSE</button>
+    </div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="game-footer">
+      <span id="scoreLabel">SCORE: 000</span>
+      <span id="sectorLabel">SECTOR: 00,00</span>
+      <span>ARROWS / WASD TO MOVE</span>
+    </div>
+    <div class="game-msg" id="gameMsg"></div>
+    <div class="dpad" id="dpad" aria-hidden="true">
+      <button class="dpad-btn dpad-up" data-dir="up" type="button">▲</button>
+      <button class="dpad-btn dpad-left" data-dir="left" type="button">◀</button>
+      <button class="dpad-btn dpad-down" data-dir="down" type="button">▼</button>
+      <button class="dpad-btn dpad-right" data-dir="right" type="button">▶</button>
+    </div>
+    <p class="lore-text">You are a hungry little 8-bit program, feeding on stray data in the archive.<br>Be aware, you're not the only hungry thing in the files.</p>
+  </div>
+</div>
+
+<script>
+  // ---------- shared typewriter helper ----------
+  // types out each {el, text} item in sequence; returns a cancel function
+  function typeSequence(items, charDelay, lineDelay, onDone){
+    let lineIndex = 0;
+    let charIndex = 0;
+    let timer = null;
+    function step(){
+      if (lineIndex >= items.length) { if (onDone) onDone(); return; }
+      const current = items[lineIndex];
+      current.el.classList.add('typing');
+      if (charIndex <= current.text.length) {
+        current.el.textContent = current.text.slice(0, charIndex);
+        charIndex++;
+        timer = setTimeout(step, charDelay);
+      } else {
+        current.el.classList.remove('typing');
+        lineIndex++;
+        charIndex = 0;
+        timer = setTimeout(step, lineDelay);
+      }
+    }
+    step();
+    return () => clearTimeout(timer);
+  }
+
+  // ---------- boot sequence ----------
+  const bootScreen = document.getElementById('bootScreen');
+  const bootLines = document.querySelectorAll('#bootLines div');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function endBoot(){
+    bootScreen.classList.add('hidden');
+    document.body.classList.remove('boot-active');
+    runHeroTypeIn();
+  }
+
+  // the hero name, status lines, integrity bar and access link type themselves in as
+  // the boot screen clears — they already carry the flicker animation (assigned further
+  // below), so typing and flickering combine naturally as each line fills in.
+  function runHeroTypeIn(){
+    if (reduced) return;
+    const heroEls = document.querySelectorAll(
+      '.hero .ascii-bar, .hero h1, .hero .leader-row .value, .hero .progress-line, .hero .access-link'
+    );
+    const items = Array.from(heroEls).map(el => ({ el, text: el.textContent }));
+    items.forEach(it => { it.el.textContent = ''; });
+    typeSequence(items, 18, 140);
+  }
+
+  const BOOT_PASSWORD = 'mother';
+
+  function showPasswordPrompt(){
+    const section = document.getElementById('bootPasswordSection');
+    const input = document.getElementById('bootPasswordInput');
+    const error = document.getElementById('bootPasswordError');
+    document.getElementById('bootSkip').style.display = 'none';
+    section.style.display = 'block';
+    setTimeout(() => input.focus(), 50);
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (input.value.toLowerCase() === BOOT_PASSWORD){
+        endBoot();
+      } else {
+        error.textContent = '> ACCESS DENIED. RETRY.';
+        input.value = '';
+        setTimeout(() => { error.textContent = ''; }, 1800);
+      }
+    });
+  }
+
+  if (reduced) {
+    endBoot();
+  } else {
+    const lines = Array.from(bootLines).map(el => ({ el, text: el.textContent }));
+    lines.forEach(l => { l.el.textContent = ''; });
+    const cancelBootType = typeSequence(lines, 22, 260, () => setTimeout(showPasswordPrompt, 400));
+
+    const skip = () => { cancelBootType(); showPasswordPrompt(); };
+    document.getElementById('bootSkip').addEventListener('click', skip);
+    window.addEventListener('keydown', skip, { once:true });
+  }
+
+  // ---------- theme toggle ----------
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    document.documentElement.classList.toggle('amber-mode');
+  });
+
+  // ---------- project data — edit this to add your real films ----------
+  const projects = [
+    { file:'Oreo Night Twist', tags:['AI','VP','ART DIRECTOR','BROADCAST','CGI'], videoUrl:'https://drive.google.com/file/d/1fiAGLQ_YMomOCpBDzTnT_Q03D6MF1UZC/preview', img:'assets/oreo-night-twist/01.jpg',
+      gallery:['assets/oreo-night-twist/02.png','assets/oreo-night-twist/03.png','assets/oreo-night-twist/04.gif','assets/oreo-night-twist/05.gif'],
+      stills:['assets/oreo-night-twist/06.jpg','assets/oreo-night-twist/07.png','assets/oreo-night-twist/08.jpg','assets/oreo-night-twist/09.jpg','assets/oreo-night-twist/10.jpg','assets/oreo-night-twist/11.png','','','','','','assets/oreo-night-twist/12.png'],
+      client:'OREO', cat:'VFX', year:'2025', agency:'POP STUDIO', post:'PUBLICIS PRODUCTION', role:'ART DIRECTOR & VFX SUPERVISOR',
+      synopsis:"As Art Director on the Oreo Night Twist campaign, I played a key role in shaping the creative structure of the advert, developing the journey, transitions, and visual language that carried the audience through a series of unique night-out experiences. Working with Directors Bedroom and shooting on the VP stage at Soho Studios, the challenge was to create a seamless 20-second film in which a single protagonist travels through multiple environments, each revealing a different prize experience. To achieve this, I supervised and directed the team at Publicis to develop a detailed animatic that established the pacing, camera movement, environment design, and transition points long before the shoot. This planning process allowed us to rigorously test both the creative concept and the virtual production content, ensuring everything worked cohesively on the LED volume. By combining practical set pieces, bespoke virtual environments, AI-generated imagery, and CGI where appropriate, we were able to create multiple worlds in-camera while keeping post-production to a minimum. The result was a visually ambitious campaign delivered efficiently, demonstrating how thoughtful creative development and virtual production can work together to maximise both storytelling and production value.",
+      credits:[['Director','BEDROOM'],['Art Director','STEVEN AZANCOT'],['VFX Supervisor','STEVEN AZANCOT'],['Production Co.','PUBLICIS PRODUCTION'],['Agency','POP STUDIO']] },
+    { file:'Direct Line Moto Insurance', tags:['ADDS','ANIMATION','CHARACTER'], videoUrl:'https://drive.google.com/file/d/1Hy53tlVm0hOq73ynus2K-bqPZGj8Yb5l/preview', img:'assets/direct-line-moto-insurance/01.jpg', client:'DIRECT LINE', cat:'TV', year:'2025', agency:'SAATCHI & SAATCHI', post:'PUBLICIS PRODUCTION', role:'ART DIRECTOR',
+      videos:[
+        {title:'Moto Insurance', poster:'assets/direct-line-moto-insurance/02.jpg', src:'https://drive.google.com/file/d/1Hy53tlVm0hOq73ynus2K-bqPZGj8Yb5l/preview'},
+        {title:'Behind Every Business', poster:'assets/direct-line-moto-insurance/03.png', src:'https://drive.google.com/file/d/1iwXLnBSznYj_apfBiN1j-8kO40RY2TPM/preview'},
+        {title:'Landlord', poster:'assets/direct-line-moto-insurance/04.jpg', src:'https://drive.google.com/file/d/1s7M_8A_GjwWEHMw39VbS1hI3A0YJE_Sm/preview'}
+      ],
+      gallery:['assets/direct-line-moto-insurance/05.gif','assets/direct-line-moto-insurance/06.gif','assets/direct-line-moto-insurance/07.png','assets/direct-line-moto-insurance/08.png','assets/direct-line-moto-insurance/09.gif','assets/direct-line-moto-insurance/10.png','assets/direct-line-moto-insurance/11.gif','assets/direct-line-moto-insurance/12.png','assets/direct-line-moto-insurance/13.gif'],
+      stills:[],
+      synopsis:'A 30" broadcast spot built around a single uninterrupted golden-hour take.',
+      credits:[['Director','STEVEN AZANCOT'],['Production Co.','NORTHBOUND FILMS'],['DP','RENATA VOSS'],['Color','TONAL GRADE CO.'],['Editor','MEI SATO']] },
+    { file:'SIGNAL.MOV', tags:['MOTION GRAPHICS','DEMO','AI'], img:'assets/signal-mov/01.jpg', client:'NORTHWIND TECH', cat:'MOTION', year:'2024', agency:'STUDIO MAST', post:'PUBLICIS PRODUCTION', stills:[], role:'DIRECTOR',
+      synopsis:'A data-driven motion graphics piece visualizing Northwind\'s global network for a product launch.',
+      credits:[['Director','STEVEN AZANCOT'],['Motion Design','HALO POST'],['Sound Design','FIELD AUDIO'],['Editor','THEO KLEIN']] },
+    { file:'Oral-B, Trident Gum', tags:['VP','PRODUCTS','ART DIRECTOR'], img:'assets/oral-b-trident-gum/01.jpg', client:'ORAL-B', cat:'VFX', year:'2024', agency:'POP LONDON', post:'PUBLICIS PRODUCTION', stills:[], role:'CGI DIRECTOR',
+      videos:[
+        {title:'Oral-B + Stimorol', poster:'assets/oral-b-trident-gum/02.jpg', src:''},
+        {title:'Oral-B + Trident', poster:'assets/oral-b-trident-gum/03.jpg', src:''},
+        {title:'V6', poster:'assets/oral-b-trident-gum/04.jpg', src:''}
+      ],
+      gallery:['assets/oral-b-trident-gum/05.png','assets/oral-b-trident-gum/06.gif','assets/oral-b-trident-gum/07.png','assets/oral-b-trident-gum/08.gif','assets/oral-b-trident-gum/09.png','assets/oral-b-trident-gum/10.gif','assets/oral-b-trident-gum/11.png','assets/oral-b-trident-gum/12.png'],
+      synopsis:'A macro-driven hero film for Aviar\'s flagship release, with CG mechanism reveals integrated into practical footage.',
+      credits:[['Director','STEVEN AZANCOT'],['Production Co.','NORTHBOUND FILMS'],['DP','LIOR COHN'],['VFX & Post','HALO POST'],['Color','TONAL GRADE CO.']] },
+    { file:"Kellogg's Krave", tags:['AI','DIRECTOR','PRODUCTS'], img:'assets/kellogg-s-krave/01.jpg',
+      gallery:['assets/kellogg-s-krave/02.png','assets/kellogg-s-krave/03.png','assets/kellogg-s-krave/04.png','assets/kellogg-s-krave/05.png','assets/kellogg-s-krave/06.png'],
+      stills:['assets/kellogg-s-krave/07.png','assets/kellogg-s-krave/08.png','assets/kellogg-s-krave/09.png','assets/kellogg-s-krave/10.png','assets/kellogg-s-krave/11.png','assets/kellogg-s-krave/12.png'],
+      landscapeStack:['assets/kellogg-s-krave/13.png','assets/kellogg-s-krave/14.png'],
+      client:'KELLOGGS', cat:'VFX', year:'2025', agency:'LEO BURNETT', post:'PUBLICIS PRODUCTION', role:'DIRECTOR',
+      synopsis:"When Kellogg's and Leo Burnett approached us to create a 10-second AI-powered spot for Krave, I co-directed the project with Matt Gifford. Inspired by the iconic Krave character, we crafted a dreamlike sequence of it surfing a wave of milk before crashing back to reality on the breakfast counter. To bring the idea to life, we developed a bespoke hybrid pipeline that combined traditional CGI with generative AI, giving us the speed and creative freedom of AI while maintaining precise control. Rather than relying solely on prompting, we created a system that allowed us to direct animation, camera movement, and shot continuity, enabling fast and consistent creative iteration. This approach was particularly effective for complex elements like the milk simulations, reducing production time while allowing greater flexibility. By combining CGI structure with AI exploration, we could quickly adapt to feedback, refine details, and maintain creative control throughout the process. The result was a seamless blend of technology and storytelling, allowing us to push the boundaries of what was possible within a tight production schedule.",
+      credits:[['Co-Director','STEVEN AZANCOT'],['Co-Director','MATT GIFFORD'],['Agency','LEO BURNETT'],['Production Co.','PUBLICIS PRODUCTION']] }
+  ];
+
+  const fileList = document.getElementById('fileList');
+
+  projects.forEach((p, i) => {
+    const entry = document.createElement('div');
+    entry.className = 'file-entry';
+    entry.setAttribute('data-cat', p.cat);
+    entry.setAttribute('data-tags', (p.tags || []).join('|'));
+    entry.setAttribute('data-reveal','');
+    entry.setAttribute('tabindex','0');
+    entry.setAttribute('role','button');
+    entry.setAttribute('aria-label', `Open file ${p.file} for ${p.client}`);
+    entry.innerHTML = `
+      <div class="file-entry-head">
+        <span class="idx">[0${i+1}]</span>
+        <span class="file-entry-title">${p.file}</span>
+        <span class="arrow">&gt;</span>
+      </div>
+      <div class="file-pano"><img src="${p.img}" alt="${p.file} still frame" loading="lazy"></div>`;
+    const open = () => openModal(p, i);
+    entry.addEventListener('click', open);
+    entry.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+    fileList.appendChild(entry);
+
+    if (i < projects.length - 1) {
+      const leaks = [
+        `<span class="kw">if</span> cache.stale(<span class="str">'${p.file.toLowerCase().replace(/[^a-z0-9]+/g,'_')}'</span>):\n    rebuild_thumbnails()  <span class="cmt"># ${(Math.random()*2+0.4).toFixed(1)}s — 再構築完了</span>`,
+        `<span class="cmt"># TODO: 削除予定 — move ${p.client || 'TBC'} stills off main branch</span>\nasset_count += ${(p.gallery?.length||0) + (p.stills?.length||0)}`,
+        `log.info(f<span class="str">"served {request.path} in {dt:.2f}ms — 正常"</span>)\n<span class="kw">assert</span> response.status == <span class="str">200</span>`,
+        `<span class="kw">def</span> <span class="fn">hash_id</span>(title):\n    <span class="kw">return</span> sha1(title.encode()).hexdigest()[:8]  <span class="cmt"># 識別子</span>`,
+        `git.log(<span class="str">'--oneline'</span>, n=<span class="str">3</span>)  <span class="cmt"># 最終更新 — last touched</span>`,
+      ];
+      const leak = document.createElement('pre');
+      leak.className = 'leak-inline';
+      leak.setAttribute('aria-hidden', 'true');
+      leak.innerHTML = leaks[i % leaks.length];
+      fileList.appendChild(leak);
+    }
+  });
+
+  // ---------- desync the flicker animation across every flickering element ----------
+  // titles & section headers keep the original, more noticeable pace
+  const flickerFast = document.querySelectorAll('.flicker-text, .term-divider .label');
+  flickerFast.forEach(el => {
+    const delay = (Math.random() * 8).toFixed(2);
+    const dur = (5 + Math.random() * 4).toFixed(2);
+    el.style.animationDelay = `-${delay}s`;
+    el.style.animationDuration = `${dur}s`;
+  });
+  // everything else flickers far less often so it reads as ambient rather than busy
+  const flickerSlow = document.querySelectorAll(
+    '.nav-logo, .corner-glyph, .ascii-bar, .progress-line, .file-entry-head .idx, .file-entry-title, .modal-hero .play-btn'
+  );
+  flickerSlow.forEach(el => {
+    const dur = (24 + Math.random() * 16).toFixed(2);
+    const delay = (Math.random() * dur).toFixed(2);
+    el.style.animationDelay = `-${delay}s`;
+    el.style.animationDuration = `${dur}s`;
+  });
+
+  // ---------- category filter ----------
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const archiveCount = document.getElementById('archiveCount');
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      const filter = btn.dataset.filter;
+      let visible = 0;
+      document.querySelectorAll('.file-entry').forEach(entry => {
+        const match = filter === 'ALL' || entry.dataset.tags.split('|').includes(filter);
+        entry.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      archiveCount.textContent = String(visible).padStart(2, '0');
+    });
+  });
+
+  // ---------- modal logic ----------
+  const backdrop = document.getElementById('modalBackdrop');
+  const closeBtn = document.getElementById('modalCloseBtn');
+  const backLink = document.getElementById('modalBack');
+  let lastFocused = null;
+  // shared placeholder video used until a project has its own `video` id set in the projects array
+  const DEFAULT_VIDEO_URL = 'https://player.vimeo.com/video/562724769';
+
+  function openModal(p, i){
+    lastFocused = document.activeElement;
+    document.getElementById('modalFileLabel').textContent = `FILE 0${i+1}`;
+    const modalHero = document.getElementById('modalHero');
+    const videoRow = document.getElementById('modalVideoRow');
+    if (p.videos && p.videos.length) {
+      modalHero.hidden = true;
+      videoRow.hidden = false;
+      videoRow.innerHTML = p.videos.map(v => {
+        const pending = !v.src;
+        return `
+          <div class="term-divider"><span class="label mono-up">${v.title}</span></div>
+          <div class="video-tile${pending ? ' is-pending' : ''}" data-src="${v.src || ''}" tabindex="0" role="button" aria-label="Play ${v.title}">
+            <img src="${v.poster}" alt="${v.title} still frame" loading="lazy">
+            <button class="play-btn" aria-label="Play ${v.title}" type="button" tabindex="-1">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+            </button>
+            ${pending ? '<span class="vt-pending-tag">PENDING</span>' : ''}
+          </div>`;
+      }).join('');
+      videoRow.querySelectorAll('.video-tile').forEach(tile => {
+        if (tile.classList.contains('is-pending')) return;
+        const open = () => openVideoOverlay(tile.dataset.src);
+        tile.addEventListener('click', open);
+        tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      });
+    } else {
+      modalHero.hidden = false;
+      videoRow.hidden = true;
+      videoRow.innerHTML = '';
+      modalHero.dataset.videoSrc = p.videoUrl || (p.video ? `https://www.youtube.com/embed/${p.video}` : DEFAULT_VIDEO_URL);
+      document.getElementById('modalImg').src = p.img;
+      document.getElementById('modalImg').alt = p.file + ' still frame';
+    }
+    document.getElementById('modalTitle').textContent = p.file;
+    document.getElementById('modalSynopsis').textContent = p.synopsis;
+    document.getElementById('modalClient').textContent = p.client || 'TBC';
+    document.getElementById('modalAgency').textContent = p.agency || 'TBC';
+    document.getElementById('modalPost').textContent = p.post || 'TBC';
+    document.getElementById('modalType').textContent = p.role || 'TBC';
+    document.getElementById('modalCredits').innerHTML = p.credits.map(c =>
+      `<div class="leader-row"><span class="label mono-up">${c[0]}</span><span class="fill"></span><span class="value">${c[1]}</span></div>`
+    ).join('');
+    document.getElementById('modalTags').innerHTML = (p.tags || []).map(t => `<span>[${t}]</span>`).join('');
+
+    function buildMosaic(items, prefix, label){
+      const tile = (src, n) => src
+        ? `<div class="km-tile" tabindex="0"><img src="${src}" alt="${label} ${n} from ${p.file}" loading="lazy"><span class="gidx">[${prefix}.0${n}]</span></div>`
+        : '';
+      const chunks = [];
+      for (let c = 0; c < items.length; c += 7) chunks.push(items.slice(c, c + 7));
+      return chunks.map((chunk, ci) => {
+        const n = ci * 7;
+        return `
+          <div class="km-chunk${ci % 2 === 1 ? ' km-chunk--flip' : ''}">
+            <div class="km-row">
+              ${chunk[0] ? `<div class="km-tile km-square" tabindex="0"><img src="${chunk[0]}" alt="${label} ${n+1} from ${p.file}" loading="lazy"><span class="gidx">[${prefix}.0${n+1}]</span></div>` : ''}
+              <div class="km-col">
+                ${tile(chunk[1], n+2)}
+                <div class="km-row km-row--small">
+                  ${tile(chunk[2], n+3)}
+                  ${tile(chunk[3], n+4)}
+                </div>
+              </div>
+            </div>
+            ${chunk[4] ? `<div class="km-tile km-banner" tabindex="0"><img src="${chunk[4]}" alt="${label} ${n+5} from ${p.file}" loading="lazy"><span class="gidx">[${prefix}.0${n+5}]</span></div>` : ''}
+            <div class="km-row km-row--small">
+              ${tile(chunk[5], n+6)}
+              ${tile(chunk[6], n+7)}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    const gallerySection = document.getElementById('modalGallerySection');
+    if (p.gallery && p.gallery.length) {
+      gallerySection.innerHTML = `
+        <div class="term-divider"><span class="label mono-up">Key Moments</span></div>
+        <div class="km-grid">${buildMosaic(p.gallery, 'F', 'Key moment')}</div>`;
+    } else {
+      gallerySection.innerHTML = '';
+    }
+    const stillsSection = document.getElementById('modalStillsSection');
+    if (p.stills && p.stills.length) {
+      stillsSection.innerHTML = `
+        <div class="term-divider"><span class="label mono-up">RND</span></div>
+        <div class="km-grid">${buildMosaic(p.stills, 'R', 'RND asset')}</div>`;
+    } else {
+      stillsSection.innerHTML = '';
+    }
+    const landscapeSection = document.getElementById('modalLandscapeSection');
+    if (p.landscapeStack && p.landscapeStack.length) {
+      landscapeSection.innerHTML = `
+        <div class="term-divider"><span class="label mono-up">Storyboard & Reference</span></div>
+        <div class="landscape-stack">
+          ${p.landscapeStack.map((src, i) => `<img src="${src}" alt="Reference ${i+1} from ${p.file}" loading="lazy">`).join('')}
+        </div>`;
+    } else {
+      landscapeSection.innerHTML = '';
+    }
+    backdrop.classList.add('is-open');
+    backdrop.scrollTop = 0;
+    document.body.classList.add('modal-open');
+    closeBtn.focus();
+  }
+  function closeModal(){
+    backdrop.classList.remove('is-open');
+    document.body.classList.remove('modal-open');
+    closeVideoOverlay();
+    if(lastFocused) lastFocused.focus();
+  }
+
+  // ---------- full-screen video overlay ----------
+  const videoOverlay = document.getElementById('videoOverlay');
+  const overlayFrame = document.getElementById('overlayVideoFrame');
+  const videoOverlayClose = document.getElementById('videoOverlayClose');
+  let videoLastFocused = null;
+
+  function openVideoOverlay(src){
+    videoLastFocused = document.activeElement;
+    overlayFrame.src = src;
+    videoOverlay.hidden = false;
+    document.body.classList.add('modal-open');
+    videoOverlayClose.focus();
+  }
+  function closeVideoOverlay(){
+    videoOverlay.hidden = true;
+    overlayFrame.src = '';
+    if (backdrop.classList.contains('is-open')) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    if (videoLastFocused) videoLastFocused.focus();
+  }
+  document.getElementById('modalHero').addEventListener('click', () => {
+    const hero = document.getElementById('modalHero');
+    const base = hero.dataset.videoSrc;
+    const src = base + (base.includes('?') ? '&autoplay=1' : '?autoplay=1');
+    openVideoOverlay(src);
+  });
+  videoOverlayClose.addEventListener('click', closeVideoOverlay);
+  videoOverlay.addEventListener('click', (e) => { if (e.target === videoOverlay) closeVideoOverlay(); });
+  closeBtn.addEventListener('click', closeModal);
+  backLink.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+  document.querySelectorAll('.modal-back-top').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+  });
+  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!videoOverlay.hidden) { closeVideoOverlay(); return; }
+    if (backdrop.classList.contains('is-open')) closeModal();
+  });
+
+  // ---------- scroll reveal ----------
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold:.12 });
+  document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
+
+  // ---------- hidden easter egg: snake (fully isolated) ----------
+  (function(){
+
+  const overlay = document.getElementById('snakeOverlay');
+  const trigger = document.getElementById('eggTrigger');
+  const closeBtn = document.getElementById('snakeCloseBtn');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const sectorLabel = document.getElementById('sectorLabel');
+  const msgEl = document.getElementById('gameMsg');
+  const gameBox = document.getElementById('gameBox');
+
+  const VIEW = 20;              // visible cells on screen at once
+  const CELL = canvas.width / VIEW;
+  const WORLD_W = 50, WORLD_H = 50;   // bigger world than before
+  const N_OBSTACLES = 10;             // fewer single-cell obstacles now that shaped walls exist
+  const N_WALL_SHAPES = 7;            // L / I / Z shaped walls
+  const N_POISON = 4;
+  const N_GOOD = 2;                   // reduced by 50% (was 5; halved and rounded down)
+  const N_POWER = 1;
+  const POWER_DURATION = 45;  // shortened from 80 — roughly half as long
+  const POWER_ENDING_WINDOW = 15; // last ~1.6s of the power window flashes as a warning
+  const ENEMY_LEN = 2;
+  const BITE_PENALTY = 2;
+  const HUNT_TICKS = 70;     // ~7.7s of active chasing before it gives up
+  const WANDER_TICKS = 50;   // ~5.5s disengaged before it resumes hunting
+  const CHASE_MISTAKE_CHANCE = 0.18; // chance per move it picks a random direction instead of the optimal one
+
+  let snake, dir, nextDir, goodFoods, poisonFoods, powerFoods, obstacles, score, loopId, running, tickCount, cam;
+  let enemy, enemyDir, enemyState, enemyTimer, poweredUntilTick, biteCooldown;
+
+  function wrappedDelta(a, b, size){
+    // shortest signed distance from a to b on a wrapping world
+    let d = b - a;
+    d = ((d + size/2) % size + size) % size - size/2;
+    return d;
+  }
+
+  function key(x, y){ return x + ',' + y; }
+  function wrap(v, size){ return ((v % size) + size) % size; }
+
+  // base shapes as (col,row) offsets; rotated randomly 0-270deg at placement time
+  const WALL_SHAPES = [
+    [[0,0],[1,0],[2,0],[3,0]],   // I
+    [[0,0],[0,1],[0,2],[1,2]],   // L
+    [[0,0],[1,0],[1,1],[2,1]],   // Z
+  ];
+  function rotateShape(shape, times){
+    let s = shape;
+    for (let t = 0; t < times; t++) s = s.map(([x,y]) => [-y, x]);
+    const minX = Math.min(...s.map(c => c[0]));
+    const minY = Math.min(...s.map(c => c[1]));
+    return s.map(([x,y]) => [x - minX, y - minY]);
+  }
+
+  function resetGame(){
+    snake = [{x:25,y:25},{x:24,y:25},{x:23,y:25}];
+    dir = {x:1,y:0};
+    nextDir = {x:1,y:0};
+    score = 0;
+    running = true;
+    tickCount = 0;
+    msgEl.textContent = '';
+    scoreLabel.textContent = 'SCORE: 000';
+
+    obstacles = new Set();
+    const occupied = new Set(snake.map(s => key(s.x, s.y)));
+    const safe = (x, y) => Math.abs(x - 25) < 5 && Math.abs(y - 25) < 5;
+
+    let shapesPlaced = 0, shapeAttempts = 0;
+    while (shapesPlaced < N_WALL_SHAPES && shapeAttempts < 500){
+      shapeAttempts++;
+      const base = WALL_SHAPES[Math.floor(Math.random() * WALL_SHAPES.length)];
+      const cells = rotateShape(base, Math.floor(Math.random() * 4));
+      const ax = Math.floor(Math.random() * WORLD_W);
+      const ay = Math.floor(Math.random() * WORLD_H);
+      const worldCells = cells.map(([dx, dy]) => [ax + dx, ay + dy]);
+      const fits = worldCells.every(([x, y]) =>
+        x >= 0 && x < WORLD_W && y >= 0 && y < WORLD_H &&
+        !safe(x, y) && !occupied.has(key(x, y))
+      );
+      if (!fits) continue;
+      worldCells.forEach(([x, y]) => { occupied.add(key(x, y)); obstacles.add(key(x, y)); });
+      shapesPlaced++;
+    }
+
+    while (obstacles.size < N_OBSTACLES){
+      const x = Math.floor(Math.random() * WORLD_W);
+      const y = Math.floor(Math.random() * WORLD_H);
+      if (safe(x, y) || occupied.has(key(x, y))) continue;
+      obstacles.add(key(x, y));
+    }
+
+    poisonFoods = [];
+    while (poisonFoods.length < N_POISON){
+      const x = Math.floor(Math.random() * WORLD_W);
+      const y = Math.floor(Math.random() * WORLD_H);
+      if (safe(x, y) || occupied.has(key(x, y)) || obstacles.has(key(x, y))) continue;
+      if (poisonFoods.some(p => p.x === x && p.y === y)) continue;
+      poisonFoods.push({x, y});
+    }
+
+    placeGoodFoods();
+    placePowerFoods();
+    poweredUntilTick = -1;
+    biteCooldown = 0;
+
+    spawnEnemy(occupied);
+    updateCamera();
+  }
+
+  function spawnEnemy(occupied){
+    let ex, ey, tries = 0;
+    do {
+      ex = Math.floor(Math.random() * WORLD_W);
+      ey = Math.floor(Math.random() * WORLD_H);
+      tries++;
+    } while (tries < 300 && ((occupied && occupied.has(key(ex,ey))) || obstacles.has(key(ex,ey)) ||
+              Math.abs(wrappedDelta(ex, snake[0].x, WORLD_W)) + Math.abs(wrappedDelta(ey, snake[0].y, WORLD_H)) < 15));
+    enemy = [];
+    for (let i = 0; i < ENEMY_LEN; i++) enemy.push({ x: wrap(ex + i, WORLD_W), y: ey });
+    enemyDir = {x:-1,y:0};
+    enemyState = 'hunt';
+    enemyTimer = HUNT_TICKS;
+  }
+
+  function growEnemy(n){
+    const tail = enemy[enemy.length - 1];
+    for (let i = 0; i < n; i++) enemy.push({ x: tail.x, y: tail.y });
+  }
+
+  function growSnake(n){
+    const tail = snake[snake.length - 1];
+    for (let i = 0; i < n; i++) snake.push({ x: tail.x, y: tail.y });
+  }
+
+  function isBlocked(x, y){
+    if (obstacles.has(key(x, y))) return true;
+    if (snake.some(s => s.x === x && s.y === y)) return true;
+    return false;
+  }
+
+  function randomFreeCell(){
+    let p;
+    do {
+      p = { x: Math.floor(Math.random()*WORLD_W), y: Math.floor(Math.random()*WORLD_H) };
+    } while (isBlocked(p.x, p.y) || poisonFoods.some(f => f.x === p.x && f.y === p.y) ||
+             (goodFoods && goodFoods.some(f => f.x === p.x && f.y === p.y)) ||
+             (powerFoods && powerFoods.some(f => f.x === p.x && f.y === p.y)));
+    return p;
+  }
+
+  function placeGoodFoods(){
+    goodFoods = [];
+    while (goodFoods.length < N_GOOD) goodFoods.push(randomFreeCell());
+  }
+
+  function placePowerFoods(){
+    powerFoods = [];
+    while (powerFoods.length < N_POWER) powerFoods.push(randomFreeCell());
+  }
+
+  function wanderTo(item, avoidGoodFoods){
+    // wanders one cell randomly, wrapping at world edges; if every direction is blocked it stays put
+    const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}].sort(() => Math.random() - 0.5);
+    for (const d of dirs){
+      const nx = wrap(item.x + d.x, WORLD_W), ny = wrap(item.y + d.y, WORLD_H);
+      if (isBlocked(nx, ny)) continue;
+      if (poisonFoods.some(f => f.x === nx && f.y === ny)) continue;
+      if (avoidGoodFoods && goodFoods.some(f => f.x === nx && f.y === ny)) continue;
+      item.x = nx; item.y = ny;
+      return;
+    }
+  }
+
+  function moveGoodFoods(){ goodFoods.forEach(f => wanderTo(f, true)); }
+  function movePoisonFoods(){ poisonFoods.forEach(f => wanderTo(f, false)); }
+
+  function moveEnemy(){
+    enemyTimer--;
+    if (enemyState === 'hunt' && enemyTimer <= 0){
+      enemyState = 'wander';
+      enemyTimer = WANDER_TICKS;
+    } else if (enemyState === 'wander' && enemyTimer <= 0){
+      enemyState = 'hunt';
+      enemyTimer = HUNT_TICKS;
+    }
+
+    const head = enemy[0];
+    const candidates = [];
+
+    if (enemyState === 'hunt' && Math.random() > CHASE_MISTAKE_CHANCE){
+      const target = snake[0];
+      const dx = wrappedDelta(head.x, target.x, WORLD_W);
+      const dy = wrappedDelta(head.y, target.y, WORLD_H);
+      if (Math.abs(dx) >= Math.abs(dy)){
+        if (dx !== 0) candidates.push({x: dx > 0 ? 1 : -1, y:0});
+        if (dy !== 0) candidates.push({x:0, y: dy > 0 ? 1 : -1});
+      } else {
+        if (dy !== 0) candidates.push({x:0, y: dy > 0 ? 1 : -1});
+        if (dx !== 0) candidates.push({x: dx > 0 ? 1 : -1, y:0});
+      }
+    }
+    // wandering, or a chase "mistake": just move randomly instead of tracking
+    [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}].sort(() => Math.random()-0.5).forEach(d => candidates.push(d));
+
+    for (const d of candidates){
+      const nx = wrap(head.x + d.x, WORLD_W), ny = wrap(head.y + d.y, WORLD_H);
+      if (obstacles.has(key(nx, ny))) continue;
+      if (enemy.some(s => s.x === nx && s.y === ny)) continue;
+      enemy.unshift({x:nx, y:ny});
+      enemy.pop();
+      enemyDir = d;
+      return;
+    }
+  }
+
+  function updateCamera(){
+    const head = snake[0];
+    cam = {
+      x: wrap(head.x - Math.floor(VIEW/2), WORLD_W),
+      y: wrap(head.y - Math.floor(VIEW/2), WORLD_H),
+    };
+    sectorLabel.textContent = 'SECTOR: ' + String(cam.x).padStart(2,'0') + ',' + String(cam.y).padStart(2,'0');
+  }
+
+  // shortest wrapped distance from a world coordinate to the camera's corner, for toroidal rendering
+  function wrappedOffset(coord, camCoord, size){
+    return wrap(coord - camCoord, size);
+  }
+
+  function inView(x, y){
+    return wrappedOffset(x, cam.x, WORLD_W) < VIEW && wrappedOffset(y, cam.y, WORLD_H) < VIEW;
+  }
+
+  function drawCell(wx, wy, color, inset){
+    if (!inView(wx, wy)) return;
+    const sx = wrappedOffset(wx, cam.x, WORLD_W) * CELL;
+    const sy = wrappedOffset(wy, cam.y, WORLD_H) * CELL;
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.fillRect(sx+inset, sy+inset, CELL-inset*2, CELL-inset*2);
+  }
+
+  function draw(){
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#040904';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = 'rgba(57,255,106,0.07)';
+    for (let i = 1; i < VIEW; i++){
+      ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i*CELL); ctx.lineTo(canvas.width, i*CELL); ctx.stroke();
+    }
+
+    ctx.shadowBlur = 3;
+    obstacles.forEach(k => {
+      const [ox, oy] = k.split(',').map(Number);
+      drawCell(ox, oy, '#45454A', 1);
+    });
+
+    ctx.shadowBlur = 4;
+    poisonFoods.forEach(p => drawCell(p.x, p.y, '#FF3B3B', 3));
+
+    snake.forEach((s, i) => {
+      ctx.globalAlpha = i === 0 ? 1 : 0.85;
+      drawCell(s.x, s.y, '#39FF6A', 1);
+    });
+    ctx.globalAlpha = 1;
+
+    goodFoods.forEach(f => drawCell(f.x, f.y, '#FFB300', 3));
+    powerFoods.forEach(f => drawCell(f.x, f.y, '#33B5FF', 3));
+
+    const isPowered = tickCount < poweredUntilTick;
+    const isEnding = isPowered && (poweredUntilTick - tickCount) < POWER_ENDING_WINDOW;
+    const showPowered = isEnding ? (tickCount % 4 < 2) : isPowered;
+    gameBox.classList.toggle('powered', showPowered);
+    ctx.shadowBlur = 4;
+    enemy.forEach((s, i) => {
+      ctx.globalAlpha = (i === 0 ? 1 : 0.8) * (enemyState === 'wander' ? 0.45 : 1);
+      const flashing = isPowered && (tickCount % 6 < 3);
+      drawCell(s.x, s.y, flashing ? '#CFEFFF' : '#1B5E20', 1);
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  function step(){
+    if (!running) return;
+    dir = nextDir;
+    tickCount++;
+    msgEl.textContent = '';
+
+    const head = { x: wrap(snake[0].x + dir.x, WORLD_W), y: wrap(snake[0].y + dir.y, WORLD_H) };
+
+    if (obstacles.has(key(head.x, head.y)) || snake.some(s => s.x === head.x && s.y === head.y)){
+      gameOver('GAME OVER — PRESS R TO RESTART');
+      return;
+    }
+
+    const poisonIndex = poisonFoods.findIndex(p => p.x === head.x && p.y === head.y);
+    if (poisonIndex !== -1){
+      if (snake.length <= 1){
+        snake.unshift(head);
+        updateCamera();
+        draw();
+        gameOver('NOTHING LEFT TO LOSE — PRESS R TO RESTART');
+        return;
+      }
+      snake.unshift(head);
+      snake.pop();   // ordinary movement consumes the tail
+      snake.pop();   // losing a red one costs you an extra segment of mass
+      score = Math.max(0, score - 1);
+      scoreLabel.textContent = 'SCORE: ' + String(score).padStart(3, '0');
+      poisonFoods[poisonIndex] = randomFreeCell();
+      updateCamera();
+      draw();
+      return;
+    }
+
+    snake.unshift(head);
+    const eatenIndex = goodFoods.findIndex(f => f.x === head.x && f.y === head.y);
+    if (eatenIndex !== -1){
+      score++;
+      scoreLabel.textContent = 'SCORE: ' + String(score).padStart(3, '0');
+      goodFoods[eatenIndex] = randomFreeCell();
+    } else {
+      snake.pop();
+    }
+
+    const powerIndex = powerFoods.findIndex(f => f.x === head.x && f.y === head.y);
+    if (powerIndex !== -1){
+      poweredUntilTick = tickCount + POWER_DURATION;
+      powerFoods[powerIndex] = randomFreeCell();
+      msgEl.textContent = 'POWERED UP — HUNT THE DARK ONE';
+    }
+
+    if (tickCount % 2 === 0){ moveGoodFoods(); movePoisonFoods(); }
+
+    moveEnemy();
+
+    if (biteCooldown > 0) biteCooldown--;
+    const bitten = biteCooldown <= 0 && enemy.some(e => snake.some(s => s.x === e.x && s.y === e.y));
+    if (bitten){
+      const powered = tickCount < poweredUntilTick;
+      if (powered){
+        growSnake(BITE_PENALTY);
+        score += 1;
+        scoreLabel.textContent = 'SCORE: ' + String(score).padStart(3, '0');
+        const occupiedNow = new Set(snake.map(s => key(s.x, s.y)));
+        spawnEnemy(occupiedNow);
+        msgEl.textContent = 'YOU ATE THE DARK ONE — GREW + 1 PT';
+      } else if (snake.length <= BITE_PENALTY){
+        updateCamera();
+        draw();
+        gameOver('THE DARK ONE CAUGHT YOU — PRESS R TO RESTART');
+        return;
+      } else {
+        for (let i = 0; i < BITE_PENALTY; i++) snake.pop();
+        growEnemy(1);
+        biteCooldown = 15; // brief grace period so it can't bite again before you can react
+        msgEl.textContent = 'BITTEN — LOST ' + BITE_PENALTY + ' SEGMENTS';
+      }
+    }
+
+    updateCamera();
+    draw();
+  }
+
+  function gameOver(message){
+    running = false;
+    clearInterval(loopId);
+    msgEl.textContent = message;
+  }
+
+  function startLoop(){
+    clearInterval(loopId);
+    loopId = setInterval(step, 110);
+  }
+
+  function openGame(){
+    overlay.hidden = false;
+    resetGame();
+    draw();
+    startLoop();
+    closeBtn.focus();
+  }
+  function closeGame(){
+    overlay.hidden = true;
+    clearInterval(loopId);
+  }
+
+  trigger.addEventListener('click', openGame);
+  closeBtn.addEventListener('click', closeGame);
+
+  const dirMap = {
+    up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0},
+  };
+  document.getElementById('dpad').querySelectorAll('.dpad-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const m = dirMap[btn.dataset.dir];
+      if (!running){ resetGame(); draw(); startLoop(); return; }
+      if (m && !(m.x === -dir.x && m.y === -dir.y)) nextDir = m;
+    });
+  });
+  msgEl.addEventListener('click', () => {
+    if (!running){ resetGame(); draw(); startLoop(); }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (overlay.hidden) return;
+    const k = e.key.toLowerCase();
+    if (e.key === 'Escape'){ closeGame(); return; }
+    if (!running && k === 'r'){ resetGame(); draw(); startLoop(); return; }
+    const map = {
+      arrowup:{x:0,y:-1}, w:{x:0,y:-1},
+      arrowdown:{x:0,y:1}, s:{x:0,y:1},
+      arrowleft:{x:-1,y:0}, a:{x:-1,y:0},
+      arrowright:{x:1,y:0}, d:{x:1,y:0},
+    };
+    const k2 = e.key === 'ArrowUp' ? 'arrowup' : e.key === 'ArrowDown' ? 'arrowdown' :
+                e.key === 'ArrowLeft' ? 'arrowleft' : e.key === 'ArrowRight' ? 'arrowright' : k;
+    const m = map[k2];
+    if (m && !(m.x === -dir.x && m.y === -dir.y)){
+      nextDir = m;
+      e.preventDefault();
+    }
+  });
+
+  })();
+</script>
+
+</body>
+</html>
