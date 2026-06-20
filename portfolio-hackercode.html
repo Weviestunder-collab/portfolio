@@ -602,7 +602,6 @@ log.debug(f<span class="str">"{len(TAGS)} active filters — 一致"</span>)</pr
   function endBoot(){
     bootScreen.classList.add('hidden');
     document.body.classList.remove('boot-active');
-    runHeroTypeIn();
   }
 
   // the hero name, status lines, integrity bar and access link type themselves in as
@@ -639,17 +638,8 @@ log.debug(f<span class="str">"{len(TAGS)} active filters — 一致"</span>)</pr
     });
   }
 
-  if (reduced) {
-    endBoot();
-  } else {
-    const lines = Array.from(bootLines).map(el => ({ el, text: el.textContent }));
-    lines.forEach(l => { l.el.textContent = ''; });
-    const cancelBootType = typeSequence(lines, 22, 260, () => setTimeout(showPasswordPrompt, 400));
-
-    const skip = () => { cancelBootType(); showPasswordPrompt(); };
-    document.getElementById('bootSkip').addEventListener('click', skip);
-    window.addEventListener('keydown', skip, { once:true });
-  }
+  // boot screen + password gate disabled for instant style-switching
+  endBoot();
 
   // ---------- theme toggle ----------
   document.getElementById('themeToggle').addEventListener('click', () => {
