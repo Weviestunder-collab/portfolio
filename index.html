@@ -144,9 +144,21 @@
   .egg-bottom{ clip-path: inset(50% 0 0 0); }
   .egg-top{ clip-path: inset(0 0 50% 0); }
   .egg-hatch{ opacity:0; }
-  .egg-btn.hatching .egg-top{ animation: eggTopCrack 3200ms steps(1) both; }
-  .egg-btn.hatching .egg-bottom{ animation: eggBottomCrack 3200ms steps(1) both; }
-  .egg-btn.hatching .egg-hatch{ animation: eggSnakeLoop 3200ms steps(1) both; }
+  .egg-play-label{
+    position:absolute; left:22px; top:50%; transform:translateY(-50%);
+    font-size:.85rem; letter-spacing:.1em; color:var(--phosphor); opacity:0;
+    white-space:nowrap; pointer-events:none;
+  }
+  .egg-btn.hatching .egg-play-label{ animation: eggPlayLabel 4000ms steps(1) both; }
+  @keyframes eggPlayLabel{
+    0%,28%{ opacity:0; }
+    32%{ opacity:1; }
+    88%{ opacity:1; }
+    93%,100%{ opacity:0; }
+  }
+  .egg-btn.hatching .egg-top{ animation: eggTopCrack 4000ms steps(1) both; }
+  .egg-btn.hatching .egg-bottom{ animation: eggBottomCrack 4000ms steps(1) both; }
+  .egg-btn.hatching .egg-hatch{ animation: eggSnakeLoop 4000ms steps(1) both; }
   .egg-btn.hatching .hs{ animation: hsFlicker 320ms steps(1) infinite; }
   .hs2{ animation-delay:-40ms !important; }
   .hs3{ animation-delay:-80ms !important; }
@@ -173,17 +185,24 @@
   }
   @keyframes eggSnakeLoop{
     0%,26%{ opacity:0; transform:translate(0,0) scale(.4); }
-    32%{ opacity:1; transform:translate(0,0) scale(.85); }
-    38%{ transform:translate(2px,0) scale(.85); }
-    44%{ transform:translate(4px,0) scale(.85); }
-    50%{ transform:translate(4px,-2px) scale(.85); }
-    56%{ transform:translate(4px,-4px) scale(.85); }
-    62%{ transform:translate(2px,-4px) scale(.85); }
-    68%{ transform:translate(0,-4px) scale(.85); }
-    74%{ transform:translate(0,-2px) scale(.85); }
-    80%{ transform:translate(0,0) scale(.85); }
-    86%{ opacity:1; transform:translate(0,0) scale(.5); }
-    93%,100%{ opacity:0; transform:translate(0,0) scale(.3); }
+    30%{ opacity:1; transform:translate(0,0) scale(.85); }
+    33.75%{ transform:translate(2px,0) scale(.85); }
+    37.5%{ transform:translate(4px,0) scale(.85); }
+    41.25%{ transform:translate(4px,-2px) scale(.85); }
+    45%{ transform:translate(4px,-4px) scale(.85); }
+    48.75%{ transform:translate(2px,-4px) scale(.85); }
+    52.5%{ transform:translate(0,-4px) scale(.85); }
+    56.25%{ transform:translate(0,-2px) scale(.85); }
+    60%{ transform:translate(0,0) scale(.85); }
+    63.75%{ transform:translate(2px,0) scale(.85); }
+    67.5%{ transform:translate(4px,0) scale(.85); }
+    71.25%{ transform:translate(4px,-2px) scale(.85); }
+    75%{ transform:translate(4px,-4px) scale(.85); }
+    78.75%{ transform:translate(2px,-4px) scale(.85); }
+    82.5%{ transform:translate(0,-4px) scale(.85); }
+    86.25%{ transform:translate(0,-2px) scale(.85); }
+    90%{ opacity:1; transform:translate(0,0) scale(.5); }
+    95%,100%{ opacity:0; transform:translate(0,0) scale(.3); }
   }
 
   /* ---------- term-box (signature panel) ---------- */
@@ -425,16 +444,6 @@
       <div>&gt; ESTABLISHING UPLINK... OK</div>
       <div>&gt; WELCOME, OPERATOR.</div>
     </div>
-    <div id="bootPasswordSection" style="display:none; margin-top:1.5rem;">
-      <div id="bootPasswordPrompt" style="margin-bottom:.75rem;">&gt; IDENTITY VERIFICATION REQUIRED</div>
-      <div style="display:flex; align-items:center; gap:.5rem;">
-        <span>&gt; ENTER ACCESS CODE:</span>
-        <input id="bootPasswordInput" type="password" autocomplete="off" spellcheck="false"
-          style="background:none; border:none; border-bottom:1px solid var(--phosphor); color:var(--phosphor);
-                 font-family:var(--font-term); font-size:1.18rem; outline:none; width:160px; padding:.1rem .25rem; letter-spacing:.15em;">
-      </div>
-      <div id="bootPasswordError" style="margin-top:.6rem; color:#FF3B3B; min-height:1.2em;"></div>
-    </div>
     <button id="bootSkip" class="invert-hover" style="margin-top:1.5rem;">PRESS ANY KEY TO CONTINUE</button>
   </div>
 </div>
@@ -459,6 +468,7 @@
             <rect class="hs hs5" x="8" y="5" width="2" height="2"/>
             <rect class="hs hs6" x="8" y="3" width="2" height="2"/>
           </svg>
+          <span class="egg-play-label mono-up" aria-hidden="true">PLAY</span>
         </span>
       </button></li>
     </ul>
@@ -485,8 +495,8 @@
 
   <section id="archive">
     <div class="wrap">
-      <div class="term-divider" data-reveal><span class="label mono-up">Archive — <span id="archiveCount">06</span> Files</span></div>
-      <div class="filter-bar" data-reveal>
+      <div class="term-divider" data-reveal><span class="label mono-up">Archive — <span id="archiveCount">05</span> Files</span></div>
+      <div class="filter-bar" data-reveal hidden>
         <button class="filter-btn invert-hover is-active" data-filter="ALL">[ALL]</button>
         <button class="filter-btn invert-hover" data-filter="ADDS">[ADDS]</button>
         <button class="filter-btn invert-hover" data-filter="VP">[VP]</button>
@@ -706,35 +716,14 @@
     typeSequence(items, 18, 140);
   }
 
-  const BOOT_PASSWORD = 'mother';
-
-  function showPasswordPrompt(){
-    const section = document.getElementById('bootPasswordSection');
-    const input = document.getElementById('bootPasswordInput');
-    const error = document.getElementById('bootPasswordError');
-    document.getElementById('bootSkip').style.display = 'none';
-    section.style.display = 'block';
-    setTimeout(() => input.focus(), 50);
-    input.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      if (input.value.toLowerCase() === BOOT_PASSWORD){
-        endBoot();
-      } else {
-        error.textContent = '> ACCESS DENIED. RETRY.';
-        input.value = '';
-        setTimeout(() => { error.textContent = ''; }, 1800);
-      }
-    });
-  }
-
   if (reduced) {
     endBoot();
   } else {
     const lines = Array.from(bootLines).map(el => ({ el, text: el.textContent }));
     lines.forEach(l => { l.el.textContent = ''; });
-    const cancelBootType = typeSequence(lines, 22, 260, () => setTimeout(showPasswordPrompt, 400));
+    const cancelBootType = typeSequence(lines, 22, 260, () => setTimeout(endBoot, 500));
 
-    const skip = () => { cancelBootType(); showPasswordPrompt(); };
+    const skip = () => { cancelBootType(); endBoot(); };
     document.getElementById('bootSkip').addEventListener('click', skip);
     window.addEventListener('keydown', skip, { once:true });
   }
@@ -1424,11 +1413,20 @@
 
   function fetchTopScores(){
     if (!db) { lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; return; }
-    db.collection('snakeScores').orderBy('score', 'desc').limit(5).get()
+    // fetch a larger pool, then collapse repeat names down to their single best score
+    // so one person resubmitting the same name can't fill every slot and crowd out others
+    db.collection('snakeScores').orderBy('score', 'desc').limit(50).get()
       .then(snap => {
+        const seen = new Set();
         const docs = [];
-        snap.forEach(doc => docs.push(doc.data()));
-        renderLeaderboard(docs);
+        snap.forEach(doc => {
+          const d = doc.data();
+          const key = (d.name || '').trim().toUpperCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          docs.push(d);
+        });
+        renderLeaderboard(docs.slice(0, 5));
       })
       .catch(err => { console.warn(err); lbList.innerHTML = '<li class="dim">LEADERBOARD OFFLINE</li>'; });
   }
@@ -1488,9 +1486,9 @@
       trigger.classList.remove('hatching');
       void trigger.offsetWidth; // force reflow so the animation can restart
       trigger.classList.add('hatching');
-      setTimeout(() => trigger.classList.remove('hatching'), 3300);
+      setTimeout(() => trigger.classList.remove('hatching'), 4100);
     }
-    setInterval(playHatch, 60000);
+    setInterval(playHatch, 20000);
   })();
   closeBtn.addEventListener('click', closeGame);
 
